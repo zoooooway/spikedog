@@ -1,24 +1,21 @@
 package org.zoooooway.spikedog;
 
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
-import java.net.URI;
 
 /**
  * 简单的echo http server实现
  *
  * @author zoooooway
  */
-public class SimpleEchoHttpServer implements HttpHandler, AutoCloseable {
+public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(SimpleEchoHttpServer.class);
 
 
@@ -50,17 +47,23 @@ public class SimpleEchoHttpServer implements HttpHandler, AutoCloseable {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        String requestMethod = exchange.getRequestMethod();
-        URI requestURI = exchange.getRequestURI();
-        log.debug("method: {}, url: {}", requestMethod, requestURI.toString());
+        super.handle(exchange);
+    }
 
-        try (InputStream requestBody = exchange.getRequestBody()) {
-            try (OutputStream responseBody = exchange.getResponseBody()) {
-                Headers responseHeaders = exchange.getResponseHeaders();
-                responseHeaders.add("Content-Type", "text/html; charset=utf-8");
-                responseHeaders.add("Cache-Control", "no-cache");
-                exchange.sendResponseHeaders(200, requestBody.available());
-                requestBody.transferTo(responseBody);
+    @Override
+    public void process(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String requestMethod = request.getMethod();
+        String uri = request.getRequestURI();
+        log.debug("method: {}, url: {}", requestMethod, uri);
+
+        try (BufferedReader reader = request.getReader()) {
+            try (PrintWriter writer = response.getWriter()) {
+                response.setHeader("Content-Type", "text/html; charset=utf-8");
+                response.setHeader("Cache-Control", "no-cache");
+                response.setStatus(200);
+                response.setContentLength(request.getContentLength());
+                reader.lines().forEach(writer::write);
+                response.flushBuffer();
             }
         }
     }
