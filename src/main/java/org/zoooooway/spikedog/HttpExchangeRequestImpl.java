@@ -57,7 +57,7 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String getMethod() {
-        return null;
+        return request.getMethod();
     }
 
     @Override
@@ -102,7 +102,7 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String getRequestURI() {
-        return null;
+        return this.request.getRequestURI();
     }
 
     @Override

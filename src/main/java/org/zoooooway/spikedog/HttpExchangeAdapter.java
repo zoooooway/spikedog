@@ -25,6 +25,16 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     }
 
     @Override
+    public String getRequestURI() {
+        return httpExchange.getRequestURI().toString();
+    }
+
+    @Override
+    public String getMethod() {
+        return httpExchange.getRequestMethod();
+    }
+
+    @Override
     public int getContentLength() throws IOException {
         return this.httpExchange.getRequestBody().available();
     }

@@ -10,6 +10,10 @@ public interface HttpExchangeRequest {
 
     InputStream getInputStream();
 
+    String getRequestURI();
+
+    String getMethod();
+
     int getContentLength() throws IOException;
 
 }
