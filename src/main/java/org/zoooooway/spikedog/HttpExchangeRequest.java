@@ -16,4 +16,5 @@ public interface HttpExchangeRequest {
 
     int getContentLength() throws IOException;
 
+    String getParameter(String name);
 }

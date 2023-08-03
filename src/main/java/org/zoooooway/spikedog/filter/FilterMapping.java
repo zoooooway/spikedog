@@ -1,19 +1,19 @@
-package org.zoooooway.spikedog.servlet;
+package org.zoooooway.spikedog.filter;
 
-import jakarta.servlet.Servlet;
+import jakarta.servlet.Filter;
 
 import java.util.regex.Pattern;
 
 /**
  * @author zoooooway
  */
-public class ServletMapping {
+public class FilterMapping {
     final Pattern pattern;
-    final Servlet servlet;
+    final Filter filter;
 
-    public ServletMapping(String urlPattern, Servlet servlet) {
+    public FilterMapping(String urlPattern, Filter filter) {
         this.pattern = buildPattern(urlPattern);
-        this.servlet = servlet;
+        this.filter = filter;
     }
 
     Pattern buildPattern(String urlPattern) {
@@ -33,8 +33,9 @@ public class ServletMapping {
         return Pattern.compile(sb.toString());
     }
 
-    public Servlet getServlet() {
-        return servlet;
+
+    public Filter getFilter() {
+        return filter;
     }
 
     public boolean match(String path) {

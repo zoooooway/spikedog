@@ -1,9 +1,13 @@
 package org.zoooooway.spikedog.servlet;
 
 import jakarta.servlet.*;
+import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.annotation.WebInitParam;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.descriptor.JspConfigDescriptor;
+import org.zoooooway.spikedog.filter.FilterConfigImpl;
+import org.zoooooway.spikedog.filter.FilterMapping;
+import org.zoooooway.spikedog.filter.FilterRegistrationImpl;
 
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
@@ -17,10 +21,12 @@ import java.util.*;
 public class ServletContextImpl implements ServletContext {
 
     List<ServletMapping> servletMappingList = new ArrayList<>();
+    List<FilterMapping> filterMappingList = new ArrayList<>();
     Map<String, ServletRegistration.Dynamic> servletRegistrationMap = new HashMap<>();
+    Map<String, FilterRegistration.Dynamic> filterRegistrationMap = new HashMap<>();
     Map<String, String> initParameters = new HashMap<>();
 
-    public void initialize(List<Class<? extends Servlet>> servletClasses)  {
+    public void initServlets(List<Class<? extends Servlet>> servletClasses) {
         for (var servletClass : servletClasses) {
             // 创建servlet
             Constructor<? extends Servlet> constructor;
@@ -29,26 +35,27 @@ public class ServletContextImpl implements ServletContext {
                 constructor = servletClass.getConstructor();
                 servlet = constructor.newInstance();
             } catch (Exception e) {
-                throw new RuntimeException("create servlet failed", e);
+                throw new RuntimeException(String.format("create servlet [%s] failed", servletClass.getName()), e);
             }
 
             WebServlet ws = servletClass.getAnnotation(WebServlet.class);
+            // 注册servlet到容器中
+            String servletName = ws.name();
+            ServletRegistration.Dynamic dynamic = this.addServlet(servletName, servlet);
             String[] urlPatterns = ws.urlPatterns();
+            dynamic.addMapping(urlPatterns);
+
             WebInitParam[] webInitParams = ws.initParams();
             HashMap<String, String> initParameters = new HashMap<>();
             for (WebInitParam webInitParam : webInitParams) {
                 initParameters.put(webInitParam.name(), webInitParam.value());
             }
-            String servletName = ws.name();
             try {
+                // init servlet
                 servlet.init(new ServletConfigImpl(servletName, this, initParameters));
             } catch (ServletException e) {
-                throw new RuntimeException("init servlet failed", e);
+                throw new RuntimeException(String.format("init servlet [%s] failed", servletName), e);
             }
-
-            // 注册servlet到容器中
-            ServletRegistration.Dynamic dynamic = this.addServlet(servletName, servlet);
-            dynamic.addMapping(urlPatterns);
 
             for (String urlPattern : urlPatterns) {
                 ServletMapping servletMapping = new ServletMapping(urlPattern, servlet);
@@ -58,8 +65,52 @@ public class ServletContextImpl implements ServletContext {
 
     }
 
+
+    public void initFilters(List<Class<? extends Filter>> filterClasses) {
+        for (var filterClass : filterClasses) {
+            Constructor<? extends Filter> constructor;
+            Filter filter;
+            try {
+                constructor = filterClass.getConstructor();
+                filter = constructor.newInstance();
+            } catch (Exception e) {
+                throw new RuntimeException(String.format("create filter [%s] failed", filterClass.getName()), e);
+            }
+
+
+            // 注册filter到容器中
+            WebFilter wf = filterClass.getAnnotation(WebFilter.class);
+            String filterName = wf.filterName();
+            FilterRegistration.Dynamic dynamic = this.addFilter(filterName, filter);
+            String[] urlPatterns = wf.urlPatterns();
+            EnumSet<DispatcherType> dispatcherTypes = EnumSet.noneOf(DispatcherType.class);
+            dispatcherTypes.addAll(List.of(wf.dispatcherTypes()));
+            dynamic.addMappingForUrlPatterns(dispatcherTypes, false, urlPatterns);
+
+            WebInitParam[] webInitParams = wf.initParams();
+            HashMap<String, String> initParameters = new HashMap<>();
+            for (WebInitParam webInitParam : webInitParams) {
+                initParameters.put(webInitParam.name(), webInitParam.value());
+            }
+            try {
+                filter.init(new FilterConfigImpl(filterName, this, initParameters));
+            } catch (ServletException e) {
+                throw new RuntimeException(String.format("init filter [%s] failed", filterName), e);
+            }
+
+            for (String urlPattern : urlPatterns) {
+                FilterMapping filterMapping = new FilterMapping(urlPattern, filter);
+                filterMappingList.add(filterMapping);
+            }
+        }
+    }
+
     public List<ServletMapping> getServletMappingList() {
         return servletMappingList;
+    }
+
+    public List<FilterMapping> getFilterMappingList() {
+        return filterMappingList;
     }
 
     @Override
@@ -79,7 +130,7 @@ public class ServletContextImpl implements ServletContext {
         if (servletRegistrationMap.containsKey(servletName)) {
             return null;
         }
-        var dynamic = new ServletRegistrationImpl(servlet, new HashSet<>());
+        var dynamic = new ServletRegistrationImpl(this, servletName, servlet, new HashSet<>());
         dynamic.setInitParameters(this.initParameters);
         servletRegistrationMap.put(servletName, dynamic);
         return dynamic;
@@ -95,6 +146,27 @@ public class ServletContextImpl implements ServletContext {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public FilterRegistration.Dynamic addFilter(String filterName, String className) {
+        return null;
+    }
+
+    @Override
+    public FilterRegistration.Dynamic addFilter(String filterName, Filter filter) {
+        if (filterRegistrationMap.containsKey(filterName)) {
+            return null;
+        }
+        var dynamic = new FilterRegistrationImpl(filterName, filter, new HashSet<>());
+        dynamic.setInitParameters(this.initParameters);
+        filterRegistrationMap.put(filterName, dynamic);
+        return dynamic;
+    }
+
+    @Override
+    public FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
+        return null;
     }
 
     @Override
@@ -249,21 +321,6 @@ public class ServletContextImpl implements ServletContext {
 
     @Override
     public Map<String, ? extends ServletRegistration> getServletRegistrations() {
-        return null;
-    }
-
-    @Override
-    public FilterRegistration.Dynamic addFilter(String filterName, String className) {
-        return null;
-    }
-
-    @Override
-    public FilterRegistration.Dynamic addFilter(String filterName, Filter filter) {
-        return null;
-    }
-
-    @Override
-    public FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
         return null;
     }
 

@@ -1,9 +1,6 @@
 package org.zoooooway.spikedog.servlet;
 
-import jakarta.servlet.MultipartConfigElement;
-import jakarta.servlet.Servlet;
-import jakarta.servlet.ServletRegistration;
-import jakarta.servlet.ServletSecurityElement;
+import jakarta.servlet.*;
 
 import java.util.*;
 
@@ -13,17 +10,21 @@ import java.util.*;
 public class ServletRegistrationImpl implements ServletRegistration.Dynamic {
 
     final Servlet servlet;
+    final String servletName;
+//    final ServletConfig servletConfig;
     final Set<String> mappings;
     final Map<String, String> initParameters = new HashMap<>();
 
-    public ServletRegistrationImpl(Servlet servlet, Set<String> mappings) {
+    public ServletRegistrationImpl(ServletContext servletContext, String servletName, Servlet servlet, Set<String> mappings) {
+        this.servletName = servletName;
         this.servlet = servlet;
         this.mappings = mappings;
-        Enumeration<String> enumeration = servlet.getServletConfig().getInitParameterNames();
+        Enumeration<String> enumeration = servletContext.getInitParameterNames();
         while (enumeration.hasMoreElements()) {
             String key = enumeration.nextElement();
-            initParameters.put(key, servlet.getServletConfig().getInitParameter(key));
+            this.initParameters.put(key, servletContext.getInitParameter(key));
         }
+//        this.servletConfig = new ServletConfigImpl(servletName, servletContext, this.initParameters);
     }
 
     @Override
@@ -39,7 +40,7 @@ public class ServletRegistrationImpl implements ServletRegistration.Dynamic {
 
     @Override
     public String getName() {
-        return this.servlet.getServletConfig().getServletName();
+        return this.servletName;
     }
 
     @Override

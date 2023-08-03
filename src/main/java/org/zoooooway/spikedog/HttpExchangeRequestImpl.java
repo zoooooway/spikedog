@@ -221,7 +221,7 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String getParameter(String name) {
-        return null;
+        return this.request.getParameter(name);
     }
 
     @Override

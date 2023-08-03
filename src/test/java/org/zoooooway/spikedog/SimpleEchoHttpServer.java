@@ -4,9 +4,14 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zoooooway.spikedog.filter.HelloFilter;
+import org.zoooooway.spikedog.filter.LogFilter;
+import org.zoooooway.spikedog.servlet.HelloServlet;
+import org.zoooooway.spikedog.servlet.IndexServlet;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.List;
 
 /**
  * 简单的echo http server实现
@@ -39,6 +44,7 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
     final HttpServer httpServer;
 
     public SimpleEchoHttpServer(String host, int port) throws IOException {
+        super(List.of(IndexServlet.class, HelloServlet.class), List.of(HelloFilter.class, LogFilter.class));
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
         this.httpServer.createContext("/", this);
     }

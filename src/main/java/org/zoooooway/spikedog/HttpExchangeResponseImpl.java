@@ -41,12 +41,17 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
 
     @Override
     public void sendError(int sc, String msg) throws IOException {
-
+        this.response.setStatus(sc);
+        PrintWriter pw = getWriter();
+        pw.write(String.format("<h1>%d %s</h1>", sc, msg));
+        this.response.flushBuffer();
+        pw.close();
     }
 
     @Override
     public void sendError(int sc) throws IOException {
-
+        this.response.setStatus(sc);
+        this.response.flushBuffer();
     }
 
     @Override

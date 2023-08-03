@@ -16,7 +16,7 @@ import java.io.PrintWriter;
 public class HelloServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String html = "<h1>Hello Spike</h1>";
+        String html = String.format("<h1>Hello %s</h1>", req.getParameter("name"));
         try (PrintWriter writer = resp.getWriter()) {
             resp.setHeader("Content-Type", "text/html; charset=utf-8");
             resp.setHeader("Cache-Control", "no-cache");
