@@ -16,11 +16,11 @@ public class ServletMapping {
         this.servlet = servlet;
     }
 
-    public Pattern getPattern() {
-        return pattern;
-    }
-
     public Servlet getServlet() {
         return servlet;
+    }
+
+    public boolean match(String path) {
+        return this.pattern.matcher(path).matches();
     }
 }

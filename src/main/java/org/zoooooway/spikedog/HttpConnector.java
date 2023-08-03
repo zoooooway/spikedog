@@ -11,6 +11,7 @@ import org.zoooooway.spikedog.servlet.ServletContextImpl;
 import org.zoooooway.spikedog.servlet.ServletMapping;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 
 /**
@@ -40,10 +41,15 @@ public class HttpConnector implements HttpHandler {
         String uri = request.getRequestURI();
         List<ServletMapping> servletMappingList = servletContext.getServletMappingList();
         for (ServletMapping servletMapping : servletMappingList) {
-            if (servletMapping.getPattern().matcher(uri).matches()) {
+            if (servletMapping.match(uri)) {
                 servletMapping.getServlet().service(request, response);
                 return;
             }
+        }
+
+        // 未匹配到servlet，返回404
+        try (PrintWriter writer = response.getWriter()) {
+            writer.write("<h1>404 Not Found</h1><p>No mapping for URL: " + uri + "</p>");
         }
     }
 
