@@ -27,7 +27,7 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public Cookie[] getCookies() {
-        return new Cookie[0];
+        return this.request.getCookies();
     }
 
     @Override
@@ -57,7 +57,7 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String getMethod() {
-        return request.getMethod();
+        return this.request.getMethod();
     }
 
     @Override
@@ -117,12 +117,12 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public HttpSession getSession(boolean create) {
-        return null;
+        return this.request.getSession(create);
     }
 
     @Override
     public HttpSession getSession() {
-        return null;
+        return this.getSession(true);
     }
 
     @Override

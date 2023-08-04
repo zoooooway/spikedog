@@ -1,6 +1,10 @@
 package org.zoooooway.spikedog;
 
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpSession;
+import org.zoooooway.spikedog.session.SessionManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -8,7 +12,9 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -19,6 +25,8 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     final HttpExchange httpExchange;
     int status;
     int responseLength;
+
+    SessionManager sessionManager;
 
     public HttpExchangeAdapter(HttpExchange httpExchange) {
         this.httpExchange = httpExchange;
@@ -40,6 +48,12 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     }
 
     @Override
+    public HttpSession getSession(boolean create) {
+        this.sessionManager.getSession(this);
+        return null;
+    }
+
+    @Override
     public int getContentLength() throws IOException {
         return this.httpExchange.getRequestBody().available();
     }
@@ -52,6 +66,22 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
             return params.get(name);
         }
         return null;
+    }
+
+    @Override
+    public Cookie[] getCookies() {
+        Headers requestHeaders = this.httpExchange.getRequestHeaders();
+        List<String> cookieValues = requestHeaders.get("cookie");
+        List<Cookie> cookieList = new ArrayList<>();
+        for (String ck : cookieValues) {
+            String[] cookieItems = ck.split(";");
+            for (String cookieItem : cookieItems) {
+                String[] split = cookieItem.split("=");
+                Cookie cookie = new Cookie(split[0], split[1]);
+                cookieList.add(cookie);
+            }
+        }
+        return cookieList.toArray(new Cookie[0]);
     }
 
     Map<String, String> parseQuery(String query) {
