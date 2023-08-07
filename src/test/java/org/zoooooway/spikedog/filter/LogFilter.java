@@ -2,6 +2,7 @@ package org.zoooooway.spikedog.filter;
 
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +17,9 @@ public class LogFilter implements Filter {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        log.debug("remote host: {}", request.getRemoteHost());
+        if (request instanceof HttpServletRequest httpServletRequest) {
+            log.debug("request uri: {}", httpServletRequest.getRequestURI());
+        }
 
         chain.doFilter(request, response);
     }

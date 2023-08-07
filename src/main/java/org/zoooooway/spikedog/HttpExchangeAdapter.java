@@ -3,13 +3,11 @@ package org.zoooooway.spikedog;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpSession;
-import org.zoooooway.spikedog.session.SessionManager;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -23,23 +21,14 @@ import java.util.regex.Pattern;
  */
 public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeResponse {
     final HttpExchange httpExchange;
-    int status;
-    int responseLength;
-
-    SessionManager sessionManager;
 
     public HttpExchangeAdapter(HttpExchange httpExchange) {
         this.httpExchange = httpExchange;
     }
 
     @Override
-    public InputStream getInputStream() {
-        return this.httpExchange.getRequestBody();
-    }
-
-    @Override
-    public String getRequestURI() {
-        return httpExchange.getRequestURI().getPath();
+    public URI getRequestURI() {
+        return httpExchange.getRequestURI();
     }
 
     @Override
@@ -48,24 +37,13 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     }
 
     @Override
-    public HttpSession getSession(boolean create) {
-        this.sessionManager.getSession(this);
-        return null;
-    }
-
-    @Override
-    public int getContentLength() throws IOException {
-        return this.httpExchange.getRequestBody().available();
-    }
-
-    @Override
-    public String getParameter(String name) {
-        String query = this.httpExchange.getRequestURI().getRawQuery();
-        if (query != null) {
-            Map<String, String> params = parseQuery(query);
-            return params.get(name);
+    public String getRequestHeader(String name) {
+        Headers requestHeaders = this.httpExchange.getRequestHeaders();
+        List<String> list = requestHeaders.get(name);
+        if (list.isEmpty()) {
+            return null;
         }
-        return null;
+        return list.get(0);
     }
 
     @Override
@@ -82,6 +60,21 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
             }
         }
         return cookieList.toArray(new Cookie[0]);
+    }
+
+    @Override
+    public InputStream getRequestBody() {
+        return this.httpExchange.getRequestBody();
+    }
+
+    @Override
+    public String getRequestMethod() {
+        return this.httpExchange.getRequestMethod();
+    }
+
+    @Override
+    public Headers getRequestHeaders() {
+        return this.httpExchange.getRequestHeaders();
     }
 
     Map<String, String> parseQuery(String query) {
@@ -107,23 +100,17 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     }
 
     @Override
-    public void setStatus(int sc) {
-        this.status = sc;
+    public void addHeader(String name, String value) {
+        this.httpExchange.getResponseHeaders().add(name, value);
     }
 
     @Override
-    public void setContentLength(int len) {
-        this.responseLength = len;
+    public void sendResponseHeaders(int rCode, long responseLength) throws IOException {
+        this.httpExchange.sendResponseHeaders(rCode, responseLength);
     }
 
     @Override
-    public void flushBuffer() throws IOException {
-        this.httpExchange.sendResponseHeaders(status, responseLength);
-    }
-
-    @Override
-    public PrintWriter getWriter() {
-        OutputStream os = this.httpExchange.getResponseBody();
-        return new PrintWriter(os);
+    public OutputStream getResponseBody() {
+        return this.httpExchange.getResponseBody();
     }
 }

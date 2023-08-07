@@ -5,7 +5,9 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Locale;
 
@@ -15,13 +17,22 @@ import java.util.Locale;
 public class HttpExchangeResponseImpl implements HttpServletResponse {
     final HttpExchangeResponse response;
 
+    ServletOutputStream output;
+    PrintWriter writer;
+    boolean callOutput;
+    boolean callWriter;
+
+    boolean committed;
+    int status;
+
     public HttpExchangeResponseImpl(HttpExchangeResponse httpExchangeResponse) {
         this.response = httpExchangeResponse;
     }
 
     @Override
     public void addCookie(Cookie cookie) {
-
+        checkNotCommitted();
+        this.response.addHeader("Set-Cookie", cookie.getValue());
     }
 
     @Override
@@ -41,22 +52,26 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
 
     @Override
     public void sendError(int sc, String msg) throws IOException {
-        this.response.setStatus(sc);
+        checkNotCommitted();
+        this.status = sc;
+        commitHeaders(-1);
         PrintWriter pw = getWriter();
         pw.write(String.format("<h1>%d %s</h1>", sc, msg));
-        this.response.flushBuffer();
         pw.close();
     }
 
     @Override
     public void sendError(int sc) throws IOException {
-        this.response.setStatus(sc);
-        this.response.flushBuffer();
+        checkNotCommitted();
+        this.response.sendResponseHeaders(sc, -1);
     }
 
     @Override
     public void sendRedirect(String location) throws IOException {
-
+        checkNotCommitted();
+        this.status = 302;
+        this.response.setHeader("Location", location);
+        commitHeaders(-1);
     }
 
     @Override
@@ -71,12 +86,14 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
 
     @Override
     public void setHeader(String name, String value) {
+        checkNotCommitted();
         this.response.setHeader(name, value);
     }
 
     @Override
     public void addHeader(String name, String value) {
-
+        checkNotCommitted();
+        this.response.addHeader(name, value);
     }
 
     @Override
@@ -91,12 +108,13 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
 
     @Override
     public void setStatus(int sc) {
-        this.response.setStatus(sc);
+        checkNotCommitted();
+        this.status = sc;
     }
 
     @Override
     public int getStatus() {
-        return 0;
+        return this.status ;
     }
 
     @Override
@@ -126,22 +144,50 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
 
     @Override
     public ServletOutputStream getOutputStream() throws IOException {
-        return null;
+        if (this.callWriter) {
+            throw new IllegalStateException("Cannot open output stream when writer is opened.");
+        }
+
+        if (this.callOutput) {
+            return this.output;
+        }
+
+        OutputStream os = this.response.getResponseBody();
+        commitHeaders(0);
+        this.output = new ServletOutputStreamImpl(os);
+        this.callOutput = true;
+        return this.output;
     }
 
     @Override
     public PrintWriter getWriter() throws IOException {
-        return this.response.getWriter();
+        if (this.callOutput) {
+            throw new IllegalStateException("Cannot open writer when writer output stream is opened.");
+        }
+
+        if (this.callWriter) {
+            return this.writer;
+        }
+
+        OutputStream os = this.response.getResponseBody();
+        commitHeaders(0);
+        this.writer = new PrintWriter(os, true, StandardCharsets.UTF_8);
+        this.callWriter = true;
+        return this.writer;
+    }
+
+
+    void commitHeaders(long length) throws IOException {
+        this.response.sendResponseHeaders(this.status, length);
+        this.committed = true;
     }
 
     @Override
     public void setCharacterEncoding(String charset) {
-
     }
 
     @Override
     public void setContentLength(int len) {
-        response.setContentLength(len);
     }
 
     @Override
@@ -166,7 +212,14 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
 
     @Override
     public void flushBuffer() throws IOException {
-        response.flushBuffer();
+        commitHeaders(0);
+        if (this.callOutput) {
+            this.output.flush();
+        }
+
+        if (this.callWriter) {
+            this.writer.flush();
+        }
     }
 
     @Override
@@ -176,7 +229,7 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
 
     @Override
     public boolean isCommitted() {
-        return false;
+        return this.committed;
     }
 
     @Override
@@ -192,5 +245,11 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
     @Override
     public Locale getLocale() {
         return null;
+    }
+
+    void checkNotCommitted() {
+        if (this.committed) {
+            throw new IllegalStateException("Response is committed.");
+        }
     }
 }

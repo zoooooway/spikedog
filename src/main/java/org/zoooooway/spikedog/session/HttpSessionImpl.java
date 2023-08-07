@@ -2,6 +2,7 @@ package org.zoooooway.spikedog.session;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpSession;
+import org.zoooooway.spikedog.servlet.ServletContextImpl;
 
 import java.util.Enumeration;
 import java.util.Iterator;
@@ -14,13 +15,13 @@ public class HttpSessionImpl implements HttpSession {
     final String sessionId;
     final long creationTime;
     final Map<String, Object> attributes;
-    final ServletContext servletContext;
+    final ServletContextImpl servletContext;
 
     long lastAccessedTime;
     int maxInactiveInterval;
     boolean invalidate = false;
 
-    public HttpSessionImpl(String sessionId, int maxInactiveInterval, Map<String, Object> attributes, ServletContext servletContext) {
+    public HttpSessionImpl(String sessionId, int maxInactiveInterval, Map<String, Object> attributes, ServletContextImpl servletContext) {
         this.sessionId = sessionId;
         this.attributes = attributes;
         this.servletContext = servletContext;
@@ -95,6 +96,7 @@ public class HttpSessionImpl implements HttpSession {
     public void invalidate() {
         this.invalidate = true;
         this.attributes.clear();
+        this.servletContext.getSessionManager().remove(this);
     }
 
     @Override

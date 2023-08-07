@@ -2,22 +2,34 @@ package org.zoooooway.spikedog;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
+import org.zoooooway.spikedog.servlet.ServletContextImpl;
+import org.zoooooway.spikedog.session.HttpSessionImpl;
+import org.zoooooway.spikedog.util.Parameters;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
-import java.util.Collection;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author zoooooway
  */
 public class HttpExchangeRequestImpl implements HttpServletRequest {
     final HttpExchangeRequest request;
+    final HttpServletResponse response;
+    final ServletContextImpl servletContext;
+    final Parameters parameters;
 
-    public HttpExchangeRequestImpl(HttpExchangeRequest httpExchangeRequest) {
-        this.request = httpExchangeRequest;
+    ServletInputStream input;
+    BufferedReader reader;
+    boolean callInput;
+    boolean callReader;
+
+    public HttpExchangeRequestImpl(HttpExchangeRequest request, HttpServletResponse response, ServletContextImpl servletContext) {
+        this.request = request;
+        this.response = response;
+        this.servletContext = servletContext;
+        this.parameters = new Parameters(request, StandardCharsets.UTF_8);
     }
 
     @Override
@@ -37,7 +49,7 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String getHeader(String name) {
-        return null;
+        return this.request.getRequestHeader(name);
     }
 
     @Override
@@ -102,7 +114,7 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String getRequestURI() {
-        return this.request.getRequestURI();
+        return this.request.getRequestURI().getPath() ;
     }
 
     @Override
@@ -117,7 +129,38 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public HttpSession getSession(boolean create) {
-        return this.request.getSession(create);
+        Cookie[] cookies = this.getCookies();
+        String sessionId = null;
+        for (Cookie cookie : cookies) {
+            if ("JSESSIONID".equals(cookie.getName())) {
+                sessionId = cookie.getValue();
+                break;
+            }
+        }
+
+        if (sessionId == null) {
+            if (!create) {
+                return null;
+            }
+
+            sessionId = UUID.randomUUID().toString();
+        }
+
+        HttpSessionImpl session = this.servletContext.getSessionManager().getSession(sessionId, create);
+
+        // 写入响应
+        if (response.isCommitted()) {
+            // 请求已提交
+            throw new IllegalStateException("Cannot create session for response is committed.");
+        }
+
+        String cookieName = sessionId;
+        String cookieValue = "JSESSIONID=" + sessionId + "; Path=/; SameSite=Strict; HttpOnly";
+        Cookie cookie = new Cookie(cookieName, cookieValue);
+
+        this.response.addCookie(cookie);
+
+        return session;
     }
 
     @Override
@@ -198,9 +241,13 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
     @Override
     public int getContentLength() {
         try {
-            return request.getContentLength();
+            if (this.input == null) {
+                return -1;
+            }
+
+            return this.input.available();
         } catch (IOException e) {
-            return -1;
+            throw new RuntimeException(e);
         }
     }
 
@@ -216,27 +263,38 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public ServletInputStream getInputStream() throws IOException {
-        return null;
+        if (callReader) {
+            throw new IllegalStateException("Cannot open input stream when reader is opened.");
+        }
+
+        if (callInput) {
+            return this.input;
+        }
+
+        InputStream is = this.request.getRequestBody();
+        this.input = new ServletInputStreamImpl(is);
+        this.callInput = true;
+        return this.input;
     }
 
     @Override
     public String getParameter(String name) {
-        return this.request.getParameter(name);
+        return this.parameters.getParameter(name);
     }
 
     @Override
     public Enumeration<String> getParameterNames() {
-        return null;
+        return this.parameters.getParameterNames();
     }
 
     @Override
     public String[] getParameterValues(String name) {
-        return new String[0];
+        return this.parameters.getParameterValues(name);
     }
 
     @Override
     public Map<String, String[]> getParameterMap() {
-        return null;
+        return this.parameters.getParameterMap();
     }
 
     @Override
@@ -261,8 +319,17 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public BufferedReader getReader() throws IOException {
-        InputStream is = this.request.getInputStream();
-        return new BufferedReader(new InputStreamReader(is));
+        if (callInput) {
+            throw new IllegalStateException("Cannot open reader when input stream is opened.");
+        }
+
+        if (callReader) {
+            return this.reader;
+        }
+
+        this.reader = new BufferedReader(new InputStreamReader(this.request.getRequestBody()));
+        this.callReader = true;
+        return this.reader;
     }
 
     @Override

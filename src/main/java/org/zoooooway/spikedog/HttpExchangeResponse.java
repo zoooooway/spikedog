@@ -1,7 +1,7 @@
 package org.zoooooway.spikedog;
 
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.OutputStream;
 
 /**
  * @author zoooooway
@@ -9,11 +9,10 @@ import java.io.PrintWriter;
 public interface HttpExchangeResponse {
     void setHeader(String name, String value);
 
-    void setStatus(int sc);
+    void addHeader(String name, String value);
 
-    void setContentLength(int len);
+    void sendResponseHeaders(int rCode, long responseLength) throws IOException;
 
-    void flushBuffer() throws IOException;
+    OutputStream getResponseBody();
 
-    PrintWriter getWriter();
 }

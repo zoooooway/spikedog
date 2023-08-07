@@ -8,6 +8,7 @@ import jakarta.servlet.descriptor.JspConfigDescriptor;
 import org.zoooooway.spikedog.filter.FilterConfigImpl;
 import org.zoooooway.spikedog.filter.FilterMapping;
 import org.zoooooway.spikedog.filter.FilterRegistrationImpl;
+import org.zoooooway.spikedog.session.SessionManager;
 
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
@@ -25,6 +26,8 @@ public class ServletContextImpl implements ServletContext {
     Map<String, ServletRegistration.Dynamic> servletRegistrationMap = new HashMap<>();
     Map<String, FilterRegistration.Dynamic> filterRegistrationMap = new HashMap<>();
     Map<String, String> initParameters = new HashMap<>();
+
+    SessionManager sessionManager;
 
     public void initServlets(List<Class<? extends Servlet>> servletClasses) {
         for (var servletClass : servletClasses) {
@@ -427,5 +430,13 @@ public class ServletContextImpl implements ServletContext {
     @Override
     public void setResponseCharacterEncoding(String encoding) {
 
+    }
+
+    public SessionManager getSessionManager() {
+        return this.sessionManager;
+    }
+
+    public void setSessionManager(SessionManager sessionManager) {
+        this.sessionManager = sessionManager;
     }
 }

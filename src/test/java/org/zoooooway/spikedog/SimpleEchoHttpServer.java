@@ -8,6 +8,8 @@ import org.zoooooway.spikedog.filter.HelloFilter;
 import org.zoooooway.spikedog.filter.LogFilter;
 import org.zoooooway.spikedog.servlet.HelloServlet;
 import org.zoooooway.spikedog.servlet.IndexServlet;
+import org.zoooooway.spikedog.servlet.LoginServlet;
+import org.zoooooway.spikedog.servlet.LogoutServlet;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -44,7 +46,7 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
     final HttpServer httpServer;
 
     public SimpleEchoHttpServer(String host, int port) throws IOException {
-        super(List.of(IndexServlet.class, HelloServlet.class), List.of(HelloFilter.class, LogFilter.class));
+        super(List.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class), List.of(HelloFilter.class, LogFilter.class));
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
         this.httpServer.createContext("/", this);
     }

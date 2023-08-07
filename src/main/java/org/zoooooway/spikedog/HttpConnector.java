@@ -12,6 +12,7 @@ import org.zoooooway.spikedog.filter.FilterChainImpl;
 import org.zoooooway.spikedog.filter.FilterMapping;
 import org.zoooooway.spikedog.servlet.ServletContextImpl;
 import org.zoooooway.spikedog.servlet.ServletMapping;
+import org.zoooooway.spikedog.session.SessionManager;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -27,6 +28,8 @@ public class HttpConnector implements HttpHandler {
 
     public HttpConnector(List<Class<? extends Servlet>> servletClasses, List<Class<? extends Filter>> filterClasses) {
         this.servletContext = new ServletContextImpl();
+        this.servletContext.setSessionManager(new SessionManager(this.servletContext));
+
         this.servletContext.initServlets(servletClasses);
         this.servletContext.initFilters(filterClasses);
     }
@@ -34,8 +37,10 @@ public class HttpConnector implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         HttpExchangeAdapter exchangeAdapter = new HttpExchangeAdapter(exchange);
+        HttpExchangeResponseImpl response = new HttpExchangeResponseImpl(exchangeAdapter);
+        HttpExchangeRequestImpl request = new HttpExchangeRequestImpl(exchangeAdapter, response, this.servletContext);
         try {
-            process(new HttpExchangeRequestImpl(exchangeAdapter), new HttpExchangeResponseImpl(exchangeAdapter));
+            process(request, response);
         } catch (ServletException e) {
             throw new RuntimeException(e);
         }

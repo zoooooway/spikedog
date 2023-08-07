@@ -1,50 +1,44 @@
 package org.zoooooway.spikedog.session;
 
-import jakarta.servlet.ServletContext;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpSession;
-import org.zoooooway.spikedog.HttpExchangeRequest;
+import org.zoooooway.spikedog.servlet.ServletContextImpl;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author zoooooway
  */
 public class SessionManager {
-    final ServletContext servletContext;
-    Map<String, HttpSession> sessionMap = new HashMap<>();
+    final ServletContextImpl servletContext;
+    Map<String, HttpSessionImpl> sessionMap = new ConcurrentHashMap<>();
     int interval;
 
-    public SessionManager(ServletContext servletContext) {
+    public SessionManager(ServletContextImpl servletContext) {
         this.servletContext = servletContext;
     }
 
-    public HttpSession getSession(HttpExchangeRequest request) {
-        Cookie[] cookies = request.getCookies();
-        for (Cookie cookie : cookies) {
-            if ("".equals(cookie.getName())) {
-
+    public HttpSessionImpl getSession(String sessionId, boolean create) {
+        HttpSessionImpl session = this.sessionMap.get(sessionId);
+        if (session == null) {
+            if (create) {
+                return createSession(sessionId);
             }
+
+            return null;
         }
-        return null;
+
+        session.lastAccessedTime = System.currentTimeMillis();
+        return session;
     }
 
-    public HttpSession getSession(String sessionId) {
-        if (this.sessionMap.get(sessionId) == null) {
-
-        }
-        return null;
-    }
-
-    private HttpSession createSession() {
-        UUID uuid = UUID.randomUUID();
-        String sessionId = uuid.toString();
-        HttpSessionImpl httpSession = new HttpSessionImpl(sessionId, interval, new HashMap<>(), servletContext);
+    private HttpSessionImpl createSession(String sessionId) {
+        HttpSessionImpl httpSession = new HttpSessionImpl(sessionId, this.interval, new ConcurrentHashMap<>(), this.servletContext);
         sessionMap.put(sessionId, httpSession);
         return httpSession;
     }
 
 
+    public void remove(HttpSessionImpl httpSession) {
+        this.sessionMap.remove(httpSession.getId());
+    }
 }

@@ -1,27 +1,27 @@
 package org.zoooooway.spikedog;
 
+import com.sun.net.httpserver.Headers;
 import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpSession;
 
-import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 
 /**
  * @author zoooooway
  */
 public interface HttpExchangeRequest {
 
-    InputStream getInputStream();
-
-    String getRequestURI();
+    URI getRequestURI();
 
     String getMethod();
 
-    HttpSession getSession(boolean create);
-
-    int getContentLength() throws IOException;
-
-    String getParameter(String name);
+    String getRequestHeader(String name);
 
     Cookie[] getCookies();
+
+    InputStream getRequestBody();
+
+    String getRequestMethod();
+
+    Headers getRequestHeaders();
 }
