@@ -50,6 +50,10 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     public Cookie[] getCookies() {
         Headers requestHeaders = this.httpExchange.getRequestHeaders();
         List<String> cookieValues = requestHeaders.get("cookie");
+        if (cookieValues == null) {
+            return null;
+        }
+
         List<Cookie> cookieList = new ArrayList<>();
         for (String ck : cookieValues) {
             String[] cookieItems = ck.split(";");

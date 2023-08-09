@@ -114,7 +114,7 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String getRequestURI() {
-        return this.request.getRequestURI().getPath() ;
+        return this.request.getRequestURI().getPath();
     }
 
     @Override
@@ -130,6 +130,10 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
     @Override
     public HttpSession getSession(boolean create) {
         Cookie[] cookies = this.getCookies();
+        if (cookies == null) {
+            return getOrCreateSession(create, UUID.randomUUID().toString());
+        }
+        
         String sessionId = null;
         for (Cookie cookie : cookies) {
             if ("JSESSIONID".equals(cookie.getName())) {
@@ -146,7 +150,14 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
             sessionId = UUID.randomUUID().toString();
         }
 
+        return getOrCreateSession(create, sessionId);
+    }
+
+    private HttpSessionImpl getOrCreateSession(boolean create, String sessionId) {
         HttpSessionImpl session = this.servletContext.getSessionManager().getSession(sessionId, create);
+        if (session == null) {
+            return null;
+        }
 
         // 写入响应
         if (response.isCommitted()) {
@@ -159,7 +170,6 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
         Cookie cookie = new Cookie(cookieName, cookieValue);
 
         this.response.addCookie(cookie);
-
         return session;
     }
 

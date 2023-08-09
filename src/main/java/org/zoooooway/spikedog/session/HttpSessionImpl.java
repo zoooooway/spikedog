@@ -19,7 +19,6 @@ public class HttpSessionImpl implements HttpSession {
 
     long lastAccessedTime;
     int maxInactiveInterval;
-    boolean invalidate = false;
 
     public HttpSessionImpl(String sessionId, int maxInactiveInterval, Map<String, Object> attributes, ServletContextImpl servletContext) {
         this.sessionId = sessionId;
@@ -94,13 +93,18 @@ public class HttpSessionImpl implements HttpSession {
 
     @Override
     public void invalidate() {
-        this.invalidate = true;
-        this.attributes.clear();
         this.servletContext.getSessionManager().remove(this);
     }
 
     @Override
     public boolean isNew() {
         return false;
+    }
+
+    public boolean isValid() {
+        if (System.currentTimeMillis() - this.getLastAccessedTime() > this.getMaxInactiveInterval() * 1000L) {
+            return false;
+        }
+        return true;
     }
 }

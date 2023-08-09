@@ -1,6 +1,7 @@
 package org.zoooooway.spikedog;
 
 import com.sun.net.httpserver.Headers;
+import jakarta.annotation.Nullable;
 import jakarta.servlet.http.Cookie;
 
 import java.io.InputStream;
@@ -17,6 +18,7 @@ public interface HttpExchangeRequest {
 
     String getRequestHeader(String name);
 
+    @Nullable
     Cookie[] getCookies();
 
     InputStream getRequestBody();

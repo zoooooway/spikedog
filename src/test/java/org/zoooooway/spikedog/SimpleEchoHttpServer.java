@@ -47,6 +47,7 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
 
     public SimpleEchoHttpServer(String host, int port) throws IOException {
         super(List.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class), List.of(HelloFilter.class, LogFilter.class));
+        this.servletContext.getSessionManager().setInterval(10);
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
         this.httpServer.createContext("/", this);
     }
