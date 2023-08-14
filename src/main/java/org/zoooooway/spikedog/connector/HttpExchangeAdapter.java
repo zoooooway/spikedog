@@ -1,4 +1,4 @@
-package org.zoooooway.spikedog;
+package org.zoooooway.spikedog.connector;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;

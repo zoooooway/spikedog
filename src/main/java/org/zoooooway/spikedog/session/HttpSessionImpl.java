@@ -1,18 +1,23 @@
 package org.zoooooway.spikedog.session;
 
 import jakarta.servlet.ServletContext;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zoooooway.spikedog.servlet.ServletContextImpl;
 
 import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
  * @author zoooooway
  */
 public class HttpSessionImpl implements HttpSession {
-    final String sessionId;
+    private static final Logger log = LoggerFactory.getLogger(SessionManager.class.getName());
+
+    String sessionId;
     final long creationTime;
     final Map<String, Object> attributes;
     final ServletContextImpl servletContext;
@@ -83,17 +88,32 @@ public class HttpSessionImpl implements HttpSession {
 
     @Override
     public void setAttribute(String name, Object value) {
-        this.attributes.put(name, value);
+        if (value instanceof HttpSessionBindingListener boundValue) {
+            boundValue.valueBound(new HttpSessionBindingEvent(this, name, value));
+        }
+
+        Object old = this.attributes.put(name, value);
+        if (old == null) {
+            this.invokeSessionAttributeAdded(this, name, value);
+            return;
+        }
+
+        // replaced
+        if (old instanceof HttpSessionBindingListener oldValue) {
+            oldValue.valueUnbound(new HttpSessionBindingEvent(this, name, old));
+        }
+        this.invokeSessionAttributeReplaced(this, name, old);
     }
 
     @Override
     public void removeAttribute(String name) {
-        this.attributes.remove(name);
+        Object remove = this.attributes.remove(name);
+        this.invokeSessionAttributeRemoved(this, name, remove);
     }
 
     @Override
     public void invalidate() {
-        this.servletContext.getSessionManager().remove(this);
+        this.servletContext.getSessionManager().invalidate(this);
     }
 
     @Override
@@ -106,5 +126,62 @@ public class HttpSessionImpl implements HttpSession {
             return false;
         }
         return true;
+    }
+
+    void invokeSessionAttributeAdded(HttpSession session, String name, Object value) {
+        log.info("Invoke session attribute removed listener. SessionId: {}, name: {}, value: {}", session.getId(), name, value);
+
+        List<HttpSessionAttributeListener> listeners = this.servletContext.getHttpSessionAttributeListeners();
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        HttpSessionBindingEvent event = new HttpSessionBindingEvent(session, name, value);
+        for (HttpSessionAttributeListener listener : listeners) {
+            listener.attributeAdded(event);
+        }
+    }
+
+    void invokeSessionAttributeRemoved(HttpSession session, String name, Object value) {
+        log.info("Invoke session attribute removed listener. Session id: {}, name: {}, value: {}", session.getId(), name, value);
+
+        List<HttpSessionAttributeListener> listeners = this.servletContext.getHttpSessionAttributeListeners();
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        HttpSessionBindingEvent event = new HttpSessionBindingEvent(session, name, value);
+        for (HttpSessionAttributeListener listener : listeners) {
+            listener.attributeRemoved(event);
+        }
+    }
+
+    void invokeSessionAttributeReplaced(HttpSession session, String name, Object value) {
+        log.info("Invoke session attribute removed listener. Session id: {}, name: {}, value: {}", session.getId(), name, value);
+
+        List<HttpSessionAttributeListener> listeners = this.servletContext.getHttpSessionAttributeListeners();
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        HttpSessionBindingEvent event = new HttpSessionBindingEvent(session, name, value);
+        for (HttpSessionAttributeListener listener : listeners) {
+            listener.attributeReplaced(event);
+        }
+    }
+
+
+    void invokeSessionIdChanged(HttpSession session, String oldSessionId) {
+        log.info("Invoke session id changed listener. Old session id: {}, new session id: {}", oldSessionId, session.getId());
+
+        List<HttpSessionIdListener> listeners = this.servletContext.getHttpSessionIdListeners();
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        HttpSessionEvent event = new HttpSessionEvent(session);
+        for (HttpSessionIdListener listener : listeners) {
+            listener.sessionIdChanged(event, oldSessionId);
+        }
     }
 }

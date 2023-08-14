@@ -5,29 +5,73 @@ import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.annotation.WebInitParam;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.descriptor.JspConfigDescriptor;
+import jakarta.servlet.http.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.zoooooway.spikedog.filter.FilterChainImpl;
 import org.zoooooway.spikedog.filter.FilterConfigImpl;
 import org.zoooooway.spikedog.filter.FilterMapping;
 import org.zoooooway.spikedog.filter.FilterRegistrationImpl;
 import org.zoooooway.spikedog.session.SessionManager;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author zoooooway
  */
-public class ServletContextImpl implements ServletContext {
+public class ServletContextImpl implements ServletContext, AutoCloseable {
+
+    Logger log = LoggerFactory.getLogger(this.getClass());
 
     List<ServletMapping> servletMappingList = new ArrayList<>();
     List<FilterMapping> filterMappingList = new ArrayList<>();
     Map<String, ServletRegistration.Dynamic> servletRegistrationMap = new HashMap<>();
     Map<String, FilterRegistration.Dynamic> filterRegistrationMap = new HashMap<>();
     Map<String, String> initParameters = new HashMap<>();
+    Map<String, Object> attributes = new HashMap<>();
+
+    // listener++
+
+    List<HttpSessionListener> httpSessionListeners = new ArrayList<>();
+    List<HttpSessionActivationListener> httpSessionActivationListeners = new ArrayList<>();
+    List<HttpSessionAttributeListener> httpSessionAttributeListeners = new ArrayList<>();
+    List<HttpSessionIdListener> httpSessionIdListeners = new ArrayList<>();
+
+    List<ServletContextListener> servletContextListeners = new ArrayList<>();
+    List<ServletRequestListener> servletRequestListeners = new ArrayList<>();
+    List<ServletContextAttributeListener> servletContextAttributeListeners = new ArrayList<>();
+    List<ServletRequestAttributeListener> servletRequestAttributeListeners = new ArrayList<>();
+
+    // listener--
 
     SessionManager sessionManager;
+
+
+    public void init(List<Class<? extends Servlet>> servletClasses, List<Class<? extends Filter>> filterClasses) {
+        this.initServlets(servletClasses);
+        this.initFilters(filterClasses);
+
+        // notify listeners
+        this.invokeServletContextInitialized(this);
+    }
+
+    public void destroy() {
+        // clean
+        servletMappingList.clear();
+        servletRegistrationMap.clear();
+        filterMappingList.clear();
+        filterRegistrationMap.clear();
+
+        // notify listeners
+        this.invokeServletContextDestroyed(this);
+    }
 
     public void initServlets(List<Class<? extends Servlet>> servletClasses) {
         for (var servletClass : servletClasses) {
@@ -67,7 +111,6 @@ public class ServletContextImpl implements ServletContext {
         }
 
     }
-
 
     public void initFilters(List<Class<? extends Filter>> filterClasses) {
         for (var filterClass : filterClasses) {
@@ -115,6 +158,36 @@ public class ServletContextImpl implements ServletContext {
     public List<FilterMapping> getFilterMappingList() {
         return filterMappingList;
     }
+
+    public void process(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        String uri = request.getRequestURI();
+        for (ServletMapping servletMapping : this.getServletMappingList()) {
+            if (servletMapping.match(uri)) {
+                List<Filter> filterList = findFilters(uri);
+                FilterChain filterChain = new FilterChainImpl(filterList, servletMapping.getServlet());
+                try {
+                    this.invokeServletRequestInitialized(this, request);
+                    filterChain.doFilter(request, response);
+                    return;
+                } finally {
+                    this.invokeServletRequestDestroyed(this, request);
+                }
+            }
+        }
+
+        // 未匹配到servlet，返回404
+        try (PrintWriter writer = response.getWriter()) {
+            writer.write("<h1>404 Not Found</h1><p>No mapping for URL: " + uri + "</p>");
+            response.setStatus(404);
+            response.flushBuffer();
+        }
+    }
+
+    private List<Filter> findFilters(String uri) {
+        List<FilterMapping> filterMappingList = this.getFilterMappingList();
+        return filterMappingList.stream().filter(f -> f.match(uri)).map(FilterMapping::getFilter).collect(Collectors.toList());
+    }
+
 
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, String className) {
@@ -174,7 +247,7 @@ public class ServletContextImpl implements ServletContext {
 
     @Override
     public String getContextPath() {
-        return null;
+        return "/";
     }
 
     @Override
@@ -234,12 +307,12 @@ public class ServletContextImpl implements ServletContext {
 
     @Override
     public void log(String msg) {
-
+        log.info(msg);
     }
 
     @Override
     public void log(String message, Throwable throwable) {
-
+        log.error(message, throwable);
     }
 
     @Override
@@ -293,12 +366,22 @@ public class ServletContextImpl implements ServletContext {
     }
 
     @Override
-    public void setAttribute(String name, Object object) {
+    public void setAttribute(String name, Object value) {
+        Object old = this.attributes.put(name, value);
+        if (old == null) {
+            this.invokeServletAttributeAdded(this, name, value);
+            return;
+        }
+
+        // replaced
+        this.invokeServletAttributeReplaced(this, name, old);
 
     }
 
     @Override
     public void removeAttribute(String name) {
+        Object remove = this.attributes.remove(name);
+        this.invokeServletAttributeRemoved(this, name, remove);
 
     }
 
@@ -438,5 +521,147 @@ public class ServletContextImpl implements ServletContext {
 
     public void setSessionManager(SessionManager sessionManager) {
         this.sessionManager = sessionManager;
+    }
+
+    // invoke servlet listeners++
+
+    void invokeServletContextInitialized(ServletContext sc) {
+        log.info("Invoke servlet context initialized listener. Servlet name: {}", sc.getServletContextName());
+
+        List<ServletContextListener> listeners = this.servletContextListeners;
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletContextEvent event = new ServletContextEvent(this);
+        for (ServletContextListener listener : listeners) {
+            listener.contextInitialized(event);
+        }
+    }
+
+    void invokeServletContextDestroyed(ServletContext sc) {
+        log.info("Invoke servlet context destroyed listener. Servlet name: {}", sc.getServletContextName());
+
+        List<ServletContextListener> listeners = this.servletContextListeners;
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletContextEvent event = new ServletContextEvent(this);
+        // 以相反顺序调用
+        for (int i = listeners.size() - 1; i >= 0; i--) {
+            listeners.get(i).contextDestroyed(event);
+        }
+    }
+
+
+    void invokeServletAttributeAdded(ServletContext sc, String name, Object value) {
+        log.info("Invoke servlet attribute added listener. Name: {}, value: {}", name, value);
+
+        List<ServletContextAttributeListener> listeners = this.servletContextAttributeListeners;
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletContextAttributeEvent event = new ServletContextAttributeEvent(sc, name, value);
+        for (ServletContextAttributeListener listener : listeners) {
+            listener.attributeAdded(event);
+        }
+    }
+
+    void invokeServletAttributeRemoved(ServletContext sc, String name, Object value) {
+        log.info("Invoke servlet attribute removed listener. Name: {}, value: {}", name, value);
+
+        List<ServletContextAttributeListener> listeners = this.servletContextAttributeListeners;
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletContextAttributeEvent event = new ServletContextAttributeEvent(sc, name, value);
+        for (ServletContextAttributeListener listener : this.servletContextAttributeListeners) {
+            listener.attributeRemoved(event);
+        }
+    }
+
+    void invokeServletAttributeReplaced(ServletContext sc, String name, Object value) {
+        log.info("Invoke servlet attribute replaced listener. Name: {}, value: {}", name, value);
+
+        List<ServletContextAttributeListener> listeners = this.servletContextAttributeListeners;
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletContextAttributeEvent event = new ServletContextAttributeEvent(sc, name, value);
+        for (ServletContextAttributeListener listener : this.servletContextAttributeListeners) {
+            listener.attributeReplaced(event);
+        }
+    }
+
+    void invokeServletRequestInitialized(ServletContext sc, ServletRequest request) {
+        log.info("Invoke servlet request initialized listener. Servlet request id: {}", request.getRequestId());
+
+        List<ServletRequestListener> listeners = this.servletRequestListeners;
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletRequestEvent event = new ServletRequestEvent(sc, request);
+        for (ServletRequestListener listener : listeners) {
+            listener.requestInitialized(event);
+        }
+    }
+
+    void invokeServletRequestDestroyed(ServletContext sc, ServletRequest request) {
+        log.info("Invoke servlet request destroyed listener. Servlet request id: {}", request.getRequestId());
+
+        List<ServletRequestListener> listeners = this.servletRequestListeners;
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletRequestEvent event = new ServletRequestEvent(sc, request);
+        for (ServletRequestListener listener : listeners) {
+            listener.requestDestroyed(event);
+        }
+    }
+
+    // invoke listeners--
+
+
+    public List<HttpSessionListener> getHttpSessionListeners() {
+        return httpSessionListeners;
+    }
+
+    public List<HttpSessionActivationListener> getHttpSessionActivationListeners() {
+        return httpSessionActivationListeners;
+    }
+
+    public List<HttpSessionAttributeListener> getHttpSessionAttributeListeners() {
+        return httpSessionAttributeListeners;
+    }
+
+    public List<HttpSessionIdListener> getHttpSessionIdListeners() {
+        return httpSessionIdListeners;
+    }
+
+    public List<ServletContextListener> getServletContextListeners() {
+        return servletContextListeners;
+    }
+
+    public List<ServletRequestListener> getServletRequestListeners() {
+        return servletRequestListeners;
+    }
+
+    public List<ServletContextAttributeListener> getServletContextAttributeListeners() {
+        return servletContextAttributeListeners;
+    }
+
+    public List<ServletRequestAttributeListener> getServletRequestAttributeListeners() {
+        return servletRequestAttributeListeners;
+    }
+
+    @Override
+    public void close() throws Exception {
+        this.destroy();
     }
 }

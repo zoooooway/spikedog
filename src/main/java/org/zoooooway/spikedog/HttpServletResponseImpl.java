@@ -3,6 +3,7 @@ package org.zoooooway.spikedog;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
+import org.zoooooway.spikedog.connector.HttpExchangeResponse;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -14,7 +15,7 @@ import java.util.Locale;
 /**
  * @author zoooooway
  */
-public class HttpExchangeResponseImpl implements HttpServletResponse {
+public class HttpServletResponseImpl implements HttpServletResponse {
     final HttpExchangeResponse response;
 
     ServletOutputStream output;
@@ -25,7 +26,7 @@ public class HttpExchangeResponseImpl implements HttpServletResponse {
     boolean committed;
     int status;
 
-    public HttpExchangeResponseImpl(HttpExchangeResponse httpExchangeResponse) {
+    public HttpServletResponseImpl(HttpExchangeResponse httpExchangeResponse) {
         this.response = httpExchangeResponse;
     }
 

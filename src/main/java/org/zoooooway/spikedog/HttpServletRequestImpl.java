@@ -2,6 +2,9 @@ package org.zoooooway.spikedog;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.zoooooway.spikedog.connector.HttpExchangeRequest;
 import org.zoooooway.spikedog.servlet.ServletContextImpl;
 import org.zoooooway.spikedog.session.HttpSessionImpl;
 import org.zoooooway.spikedog.util.Parameters;
@@ -14,21 +17,29 @@ import java.util.*;
 /**
  * @author zoooooway
  */
-public class HttpExchangeRequestImpl implements HttpServletRequest {
+public class HttpServletRequestImpl implements HttpServletRequest {
+    private static final Logger log = LoggerFactory.getLogger(HttpServletRequestImpl.class);
+
     final HttpExchangeRequest request;
     final HttpServletResponse response;
     final ServletContextImpl servletContext;
     final Parameters parameters;
+    final Map<String, Object> attributes;
 
     ServletInputStream input;
     BufferedReader reader;
     boolean callInput;
     boolean callReader;
 
-    public HttpExchangeRequestImpl(HttpExchangeRequest request, HttpServletResponse response, ServletContextImpl servletContext) {
+    public HttpServletRequestImpl(HttpExchangeRequest request, HttpServletResponse response, ServletContextImpl servletContext) {
+        this(request, response, servletContext, new HashMap<>());
+    }
+
+    public HttpServletRequestImpl(HttpExchangeRequest request, HttpServletResponse response, ServletContextImpl servletContext, Map<String, Object> attributes) {
         this.request = request;
         this.response = response;
         this.servletContext = servletContext;
+        this.attributes = attributes;
         this.parameters = new Parameters(request, StandardCharsets.UTF_8);
     }
 
@@ -109,7 +120,19 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String getRequestedSessionId() {
-        return null;
+        Cookie[] cookies = this.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+
+        String sessionId = null;
+        for (Cookie cookie : cookies) {
+            if ("JSESSIONID".equals(cookie.getName())) {
+                sessionId = cookie.getValue();
+                break;
+            }
+        }
+        return sessionId;
     }
 
     @Override
@@ -129,25 +152,14 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public HttpSession getSession(boolean create) {
-        Cookie[] cookies = this.getCookies();
-        if (cookies == null) {
-            return getOrCreateSession(create, UUID.randomUUID().toString());
-        }
-        
-        String sessionId = null;
-        for (Cookie cookie : cookies) {
-            if ("JSESSIONID".equals(cookie.getName())) {
-                sessionId = cookie.getValue();
-                break;
-            }
-        }
-
+        String sessionId = this.getRequestedSessionId();
         if (sessionId == null) {
-            if (!create) {
-                return null;
+            if (create) {
+                sessionId = UUID.randomUUID().toString();
+                return getOrCreateSession(true, sessionId);
             }
 
-            sessionId = UUID.randomUUID().toString();
+            return null;
         }
 
         return getOrCreateSession(create, sessionId);
@@ -180,7 +192,11 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public String changeSessionId() {
-        return null;
+        HttpSession session = this.getSession(false);
+        if (session == null) {
+            throw new IllegalStateException("There is no session associated with the request.");
+        }
+        return this.servletContext.getSessionManager().changeSessionId((HttpSessionImpl) session);
     }
 
     @Override
@@ -354,12 +370,20 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
 
     @Override
     public void setAttribute(String name, Object o) {
+        Object old = this.attributes.put(name, o);
+        if (old == null) {
+            this.invokeServletRequestAttributeAdded(this.getServletContext(), this, name, o);
+            return;
+        }
 
+        // replaced
+        this.invokeServletRequestAttributeReplaced(this.getServletContext(), this, name, old);
     }
 
     @Override
     public void removeAttribute(String name) {
-
+        Object remove = this.attributes.remove(name);
+        this.invokeServletRequestAttributeRemoved(this.getServletContext(), this, name, remove);
     }
 
     @Override
@@ -451,4 +475,48 @@ public class HttpExchangeRequestImpl implements HttpServletRequest {
     public ServletConnection getServletConnection() {
         return null;
     }
+
+
+    void invokeServletRequestAttributeAdded(ServletContext sc, ServletRequest request, String name, Object value) {
+        log.info("Invoke servlet request attribute added listener.  Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
+
+        List<ServletRequestAttributeListener> listeners = this.servletContext.getServletRequestAttributeListeners();
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletRequestAttributeEvent event = new ServletRequestAttributeEvent(sc, request, name, value);
+        for (ServletRequestAttributeListener listener : listeners) {
+            listener.attributeAdded(event);
+        }
+    }
+
+    void invokeServletRequestAttributeRemoved(ServletContext sc, ServletRequest request, String name, Object value) {
+        log.info("Invoke servlet request attribute removed listener. Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
+
+        List<ServletRequestAttributeListener> listeners = this.servletContext.getServletRequestAttributeListeners();
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletRequestAttributeEvent event = new ServletRequestAttributeEvent(sc, request, name, value);
+        for (ServletRequestAttributeListener listener : listeners) {
+            listener.attributeRemoved(event);
+        }
+    }
+
+    void invokeServletRequestAttributeReplaced(ServletContext sc, ServletRequest request, String name, Object value) {
+        log.info("Invoke servlet request attribute replaced listener. Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
+
+        List<ServletRequestAttributeListener> listeners = this.servletContext.getServletRequestAttributeListeners();
+        if (listeners.isEmpty()) {
+            return;
+        }
+
+        ServletRequestAttributeEvent event = new ServletRequestAttributeEvent(sc, request, name, value);
+        for (ServletRequestAttributeListener listener : listeners) {
+            listener.attributeReplaced(event);
+        }
+    }
+
 }

@@ -1,6 +1,6 @@
 package org.zoooooway.spikedog.util;
 
-import org.zoooooway.spikedog.HttpExchangeRequest;
+import org.zoooooway.spikedog.connector.HttpExchangeRequest;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

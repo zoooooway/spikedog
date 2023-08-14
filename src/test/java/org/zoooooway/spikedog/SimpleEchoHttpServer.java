@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zoooooway.spikedog.connector.HttpConnector;
 import org.zoooooway.spikedog.filter.HelloFilter;
 import org.zoooooway.spikedog.filter.LogFilter;
 import org.zoooooway.spikedog.servlet.HelloServlet;

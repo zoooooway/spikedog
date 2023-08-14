@@ -1,4 +1,4 @@
-package org.zoooooway.spikedog;
+package org.zoooooway.spikedog.connector;
 
 import java.io.IOException;
 import java.io.OutputStream;
