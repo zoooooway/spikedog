@@ -1,9 +1,8 @@
-package org.zoooooway.spikedog;
+package org.zoooooway.spikedog.connector;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
-import org.zoooooway.spikedog.connector.HttpExchangeResponse;
 
 import java.io.IOException;
 import java.io.OutputStream;

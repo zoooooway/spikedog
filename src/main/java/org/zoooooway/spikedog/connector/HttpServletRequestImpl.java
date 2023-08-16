@@ -1,10 +1,9 @@
-package org.zoooooway.spikedog;
+package org.zoooooway.spikedog.connector;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zoooooway.spikedog.connector.HttpExchangeRequest;
 import org.zoooooway.spikedog.servlet.ServletContextImpl;
 import org.zoooooway.spikedog.session.HttpSessionImpl;
 import org.zoooooway.spikedog.util.Parameters;

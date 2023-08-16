@@ -1,4 +1,4 @@
-package org.zoooooway.spikedog;
+package org.zoooooway.spikedog.connector;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;

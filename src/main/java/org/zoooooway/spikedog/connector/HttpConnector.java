@@ -5,8 +5,6 @@ import com.sun.net.httpserver.HttpHandler;
 import jakarta.servlet.Filter;
 import jakarta.servlet.Servlet;
 import jakarta.servlet.ServletException;
-import org.zoooooway.spikedog.HttpServletRequestImpl;
-import org.zoooooway.spikedog.HttpServletResponseImpl;
 import org.zoooooway.spikedog.servlet.ServletContextImpl;
 import org.zoooooway.spikedog.session.SessionManager;
 
