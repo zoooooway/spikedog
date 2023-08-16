@@ -7,6 +7,9 @@ import org.slf4j.LoggerFactory;
 import org.zoooooway.spikedog.connector.HttpConnector;
 import org.zoooooway.spikedog.filter.HelloFilter;
 import org.zoooooway.spikedog.filter.LogFilter;
+import org.zoooooway.spikedog.listener.HttpSessionListenerImpl;
+import org.zoooooway.spikedog.listener.ServletContextListenerImpl;
+import org.zoooooway.spikedog.listener.ServletRequestListenerImpl;
 import org.zoooooway.spikedog.servlet.HelloServlet;
 import org.zoooooway.spikedog.servlet.IndexServlet;
 import org.zoooooway.spikedog.servlet.LoginServlet;
@@ -25,12 +28,11 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
     private static final Logger log = LoggerFactory.getLogger(SimpleEchoHttpServer.class);
 
 
-
-    public static void main(String[] args)  {
+    public static void main(String[] args) {
         try (SimpleEchoHttpServer echoServer = new SimpleEchoHttpServer("localhost", 8080)) {
             echoServer.httpServer.start();
             log.debug("start server!");
-            for (;;) {
+            for (; ; ) {
                 try {
                     Thread.sleep(3000);
                 } catch (InterruptedException e) {
@@ -47,7 +49,9 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
     final HttpServer httpServer;
 
     public SimpleEchoHttpServer(String host, int port) throws IOException {
-        super(List.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class), List.of(HelloFilter.class, LogFilter.class));
+        super(List.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class),
+                List.of(HelloFilter.class, LogFilter.class),
+                List.of(HttpSessionListenerImpl.class, ServletRequestListenerImpl.class, ServletContextListenerImpl.class));
         this.servletContext.getSessionManager().setInterval(10);
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
         this.httpServer.createContext("/", this);

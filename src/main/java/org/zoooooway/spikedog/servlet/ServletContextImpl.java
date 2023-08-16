@@ -37,6 +37,8 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     Map<String, String> initParameters = new HashMap<>();
     Map<String, Object> attributes = new HashMap<>();
 
+    boolean initialized = false;
+
     // listener++
 
     List<HttpSessionListener> httpSessionListeners = new ArrayList<>();
@@ -54,13 +56,17 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     SessionManager sessionManager;
 
 
-    public void init(List<Class<? extends Servlet>> servletClasses, List<Class<? extends Filter>> filterClasses) {
+    public void init(List<Class<? extends Servlet>> servletClasses, List<Class<? extends Filter>> filterClasses, List<Class<? extends EventListener>> listenerClasses) {
         this.initServlets(servletClasses);
         this.initFilters(filterClasses);
+        this.initListener(listenerClasses);
 
         // notify listeners
         this.invokeServletContextInitialized(this);
+
+        this.initialized = true;
     }
+
 
     public void destroy() {
         // clean
@@ -151,6 +157,18 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
         }
     }
 
+    private void initListener(List<Class<? extends EventListener>> listenerClasses) {
+        for (var listenerClass : listenerClasses) {
+            EventListener listener;
+            try {
+                listener = listenerClass.getConstructor().newInstance();
+            } catch (Exception e) {
+                throw new RuntimeException(String.format("Create listener [%s] failed.", listenerClass.getName()), e);
+            }
+            this.addListener(listener);
+        }
+    }
+
     public List<ServletMapping> getServletMappingList() {
         return servletMappingList;
     }
@@ -203,9 +221,18 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, Servlet servlet) {
+        if (initialized) {
+            throw new IllegalArgumentException("This ServletContext has already been initialized.");
+        }
+
+        if (servletName == null || "".equals(servletName)) {
+            throw new IllegalArgumentException("Servlet name can not be null or empty string");
+        }
+
         if (servletRegistrationMap.containsKey(servletName)) {
             return null;
         }
+
         var dynamic = new ServletRegistrationImpl(this, servletName, servlet, new HashSet<>());
         dynamic.setInitParameters(this.initParameters);
         servletRegistrationMap.put(servletName, dynamic);
@@ -226,14 +253,28 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, String className) {
-        return null;
+        try {
+            Class<?> filterClass = Class.forName(className);
+            return addFilter(filterName, filterClass.asSubclass(Filter.class));
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, Filter filter) {
+        if (initialized) {
+            throw new IllegalArgumentException("This ServletContext has already been initialized.");
+        }
+
+        if (filterName == null || "".equals(filterName)) {
+            throw new IllegalArgumentException("Filter name can not be null or empty string");
+        }
+
         if (filterRegistrationMap.containsKey(filterName)) {
             return null;
         }
+
         var dynamic = new FilterRegistrationImpl(filterName, filter, new HashSet<>());
         dynamic.setInitParameters(this.initParameters);
         filterRegistrationMap.put(filterName, dynamic);
@@ -242,7 +283,13 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
-        return null;
+        try {
+            Constructor<? extends Filter> constructor = filterClass.getConstructor();
+            Filter filter = constructor.newInstance();
+            return addFilter(filterName, filter);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -351,22 +398,26 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
         if (this.initParameters.containsKey(name)) {
             return false;
         }
+
         this.initParameters.put(name, value);
-        return false;
+        return true;
     }
 
     @Override
     public Object getAttribute(String name) {
-        return null;
+        Objects.requireNonNull(name);
+        return this.attributes.get(name);
     }
 
     @Override
     public Enumeration<String> getAttributeNames() {
-        return null;
+        return Collections.enumeration(this.attributes.keySet());
     }
 
     @Override
     public void setAttribute(String name, Object value) {
+        Objects.requireNonNull(name);
+
         Object old = this.attributes.put(name, value);
         if (old == null) {
             this.invokeServletAttributeAdded(this, name, value);
@@ -375,19 +426,19 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
         // replaced
         this.invokeServletAttributeReplaced(this, name, old);
-
     }
 
     @Override
     public void removeAttribute(String name) {
+        Objects.requireNonNull(name);
+
         Object remove = this.attributes.remove(name);
         this.invokeServletAttributeRemoved(this, name, remove);
-
     }
 
     @Override
     public String getServletContextName() {
-        return null;
+        return "Spikedog-ServletContext";
     }
 
     @Override
@@ -397,7 +448,11 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     @Override
     public <T extends Servlet> T createServlet(Class<T> clazz) throws ServletException {
-        return null;
+        try {
+            return clazz.getConstructor().newInstance();
+        } catch (Exception e) {
+            throw new ServletException(e);
+        }
     }
 
     @Override
@@ -412,12 +467,16 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     @Override
     public <T extends Filter> T createFilter(Class<T> clazz) throws ServletException {
-        return null;
+        try {
+            return clazz.getConstructor().newInstance();
+        } catch (Exception e) {
+            throw new ServletException(e);
+        }
     }
 
     @Override
     public FilterRegistration getFilterRegistration(String filterName) {
-        return null;
+        return this.filterRegistrationMap.get(filterName);
     }
 
     @Override
@@ -447,22 +506,67 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     @Override
     public void addListener(String className) {
-
-    }
-
-    @Override
-    public <T extends EventListener> void addListener(T t) {
-
+        Class<?> aClass;
+        try {
+            aClass = Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        addListener(aClass.asSubclass(EventListener.class));
     }
 
     @Override
     public void addListener(Class<? extends EventListener> listenerClass) {
+        try {
+            Constructor<? extends EventListener> constructor = listenerClass.getConstructor();
+            EventListener listener = constructor.newInstance();
+            addListener(listener);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
+    @Override
+    public <T extends EventListener> void addListener(T t) {
+        if (t instanceof ServletContextAttributeListener l) {
+            this.servletContextAttributeListeners.add(l);
+        } else if (t instanceof ServletContextListener l) {
+            this.servletContextListeners.add(l);
+        } else if (t instanceof ServletRequestListener l) {
+            this.servletRequestListeners.add(l);
+        } else if (t instanceof ServletRequestAttributeListener l) {
+            this.servletRequestAttributeListeners.add(l);
+        } else if (t instanceof HttpSessionAttributeListener l) {
+            this.httpSessionAttributeListeners.add(l);
+        } else if (t instanceof HttpSessionIdListener l) {
+            this.httpSessionIdListeners.add(l);
+        } else if (t instanceof HttpSessionListener l) {
+            this.httpSessionListeners.add(l);
+        } else {
+            throw new IllegalArgumentException(String.format("The listener '%s' is not a target interface instance that can be added.", t.getClass().toString()));
+        }
     }
 
     @Override
     public <T extends EventListener> T createListener(Class<T> clazz) throws ServletException {
-        return null;
+        if (
+                ServletContextAttributeListener.class.isAssignableFrom(clazz) ||
+                        ServletContextListener.class.isAssignableFrom(clazz) ||
+                        ServletRequestListener.class.isAssignableFrom(clazz) ||
+                        ServletRequestAttributeListener.class.isAssignableFrom(clazz) ||
+                        HttpSessionAttributeListener.class.isAssignableFrom(clazz) ||
+                        HttpSessionIdListener.class.isAssignableFrom(clazz) ||
+                        HttpSessionListener.class.isAssignableFrom(clazz)
+
+        ) {
+            try {
+                return clazz.getConstructor().newInstance();
+            } catch (Exception e) {
+                throw new ServletException(e);
+            }
+        } else {
+            throw new IllegalArgumentException(String.format("The listener '%s' is not a target interface instance.", clazz.toString()));
+        }
     }
 
     @Override
@@ -526,7 +630,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     // invoke servlet listeners++
 
     void invokeServletContextInitialized(ServletContext sc) {
-        log.info("Invoke servlet context initialized listener. Servlet name: {}", sc.getServletContextName());
+        log.debug("Invoke servlet context initialized listener. Servlet context name: {}", sc.getServletContextName());
 
         List<ServletContextListener> listeners = this.servletContextListeners;
         if (listeners.isEmpty()) {
@@ -540,7 +644,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     }
 
     void invokeServletContextDestroyed(ServletContext sc) {
-        log.info("Invoke servlet context destroyed listener. Servlet name: {}", sc.getServletContextName());
+        log.debug("Invoke servlet context destroyed listener. Servlet context name: {}", sc.getServletContextName());
 
         List<ServletContextListener> listeners = this.servletContextListeners;
         if (listeners.isEmpty()) {
@@ -556,7 +660,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
 
     void invokeServletAttributeAdded(ServletContext sc, String name, Object value) {
-        log.info("Invoke servlet attribute added listener. Name: {}, value: {}", name, value);
+        log.debug("Invoke servlet attribute added listener. Name: {}, value: {}", name, value);
 
         List<ServletContextAttributeListener> listeners = this.servletContextAttributeListeners;
         if (listeners.isEmpty()) {
@@ -570,7 +674,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     }
 
     void invokeServletAttributeRemoved(ServletContext sc, String name, Object value) {
-        log.info("Invoke servlet attribute removed listener. Name: {}, value: {}", name, value);
+        log.debug("Invoke servlet attribute removed listener. Name: {}, value: {}", name, value);
 
         List<ServletContextAttributeListener> listeners = this.servletContextAttributeListeners;
         if (listeners.isEmpty()) {
@@ -584,7 +688,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     }
 
     void invokeServletAttributeReplaced(ServletContext sc, String name, Object value) {
-        log.info("Invoke servlet attribute replaced listener. Name: {}, value: {}", name, value);
+        log.debug("Invoke servlet attribute replaced listener. Name: {}, value: {}", name, value);
 
         List<ServletContextAttributeListener> listeners = this.servletContextAttributeListeners;
         if (listeners.isEmpty()) {
@@ -598,7 +702,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     }
 
     void invokeServletRequestInitialized(ServletContext sc, ServletRequest request) {
-        log.info("Invoke servlet request initialized listener. Servlet request id: {}", request.getRequestId());
+        log.debug("Invoke servlet request initialized listener. Servlet request id: {}", request.getRequestId());
 
         List<ServletRequestListener> listeners = this.servletRequestListeners;
         if (listeners.isEmpty()) {
@@ -612,7 +716,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     }
 
     void invokeServletRequestDestroyed(ServletContext sc, ServletRequest request) {
-        log.info("Invoke servlet request destroyed listener. Servlet request id: {}", request.getRequestId());
+        log.debug("Invoke servlet request destroyed listener. Servlet request id: {}", request.getRequestId());
 
         List<ServletRequestListener> listeners = this.servletRequestListeners;
         if (listeners.isEmpty()) {

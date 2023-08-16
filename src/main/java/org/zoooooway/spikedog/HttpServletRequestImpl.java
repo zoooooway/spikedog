@@ -25,6 +25,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
     final ServletContextImpl servletContext;
     final Parameters parameters;
     final Map<String, Object> attributes;
+    final String requestId;
 
     ServletInputStream input;
     BufferedReader reader;
@@ -40,6 +41,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
         this.response = response;
         this.servletContext = servletContext;
         this.attributes = attributes;
+        this.requestId = UUID.randomUUID().toString();
         this.parameters = new Parameters(request, StandardCharsets.UTF_8);
     }
 
@@ -463,7 +465,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public String getRequestId() {
-        return null;
+        return this.requestId;
     }
 
     @Override
@@ -478,7 +480,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
 
     void invokeServletRequestAttributeAdded(ServletContext sc, ServletRequest request, String name, Object value) {
-        log.info("Invoke servlet request attribute added listener.  Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
+        log.debug("Invoke servlet request attribute added listener.  Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
 
         List<ServletRequestAttributeListener> listeners = this.servletContext.getServletRequestAttributeListeners();
         if (listeners.isEmpty()) {
@@ -492,7 +494,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
     }
 
     void invokeServletRequestAttributeRemoved(ServletContext sc, ServletRequest request, String name, Object value) {
-        log.info("Invoke servlet request attribute removed listener. Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
+        log.debug("Invoke servlet request attribute removed listener. Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
 
         List<ServletRequestAttributeListener> listeners = this.servletContext.getServletRequestAttributeListeners();
         if (listeners.isEmpty()) {
@@ -506,7 +508,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
     }
 
     void invokeServletRequestAttributeReplaced(ServletContext sc, ServletRequest request, String name, Object value) {
-        log.info("Invoke servlet request attribute replaced listener. Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
+        log.debug("Invoke servlet request attribute replaced listener. Request: {}, Name: {}, value: {}", request.getRequestId(), name, value);
 
         List<ServletRequestAttributeListener> listeners = this.servletContext.getServletRequestAttributeListeners();
         if (listeners.isEmpty()) {

@@ -114,7 +114,7 @@ public class SessionManager implements Runnable {
 
 
     void invokeSessionCreated(HttpSession session) {
-        log.info("Invoke session created listener. Session id: {}", session.getId());
+        log.debug("Invoke session created listener. Session id: {}", session.getId());
 
         List<HttpSessionListener> listeners = this.servletContext.getHttpSessionListeners();
         if (listeners.isEmpty()) {
@@ -128,7 +128,7 @@ public class SessionManager implements Runnable {
     }
 
     void invokeSessionDestroyed(HttpSession session) {
-        log.info("Invoke session destroyed listener. Session id: {}", session.getId());
+        log.debug("Invoke session destroyed listener. Session id: {}", session.getId());
 
         List<HttpSessionListener> listeners = this.servletContext.getHttpSessionListeners();
         if (listeners.isEmpty()) {
@@ -143,7 +143,7 @@ public class SessionManager implements Runnable {
 
 
     void invokeSessionWillPassivate(HttpSessionEvent se) {
-        log.info("Invoke session will passivate listener. Session id: {}", se.getSession().getId());
+        log.debug("Invoke session will passivate listener. Session id: {}", se.getSession().getId());
 
         List<HttpSessionActivationListener> listeners = this.servletContext.getHttpSessionActivationListeners();
         if (listeners.isEmpty()) {
@@ -156,7 +156,7 @@ public class SessionManager implements Runnable {
     }
 
     void invokeSessionDidActivate(HttpSessionEvent se) {
-        log.info("Invoke session did activate listener. Session id: {}", se.getSession().getId());
+        log.debug("Invoke session did activate listener. Session id: {}", se.getSession().getId());
 
         List<HttpSessionActivationListener> listeners = this.servletContext.getHttpSessionActivationListeners();
         if (listeners.isEmpty()) {
@@ -170,7 +170,7 @@ public class SessionManager implements Runnable {
 
 
     void invokeSessionIdChanged(HttpSession session, String oldSessionId) {
-        log.info("Invoke session id changed listener. Old session id: {}, new session id: {}", oldSessionId, session.getId());
+        log.debug("Invoke session id changed listener. Old session id: {}, new session id: {}", oldSessionId, session.getId());
 
         List<HttpSessionIdListener> listeners = this.servletContext.getHttpSessionIdListeners();
         if (listeners.isEmpty()) {

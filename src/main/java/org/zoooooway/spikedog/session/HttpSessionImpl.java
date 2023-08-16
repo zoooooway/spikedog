@@ -157,7 +157,7 @@ public class HttpSessionImpl implements HttpSession {
     }
 
     void invokeSessionAttributeReplaced(HttpSession session, String name, Object value) {
-        log.info("Invoke session attribute removed listener. Session id: {}, name: {}, value: {}", session.getId(), name, value);
+        log.debug("Invoke session attribute removed listener. Session id: {}, name: {}, value: {}", session.getId(), name, value);
 
         List<HttpSessionAttributeListener> listeners = this.servletContext.getHttpSessionAttributeListeners();
         if (listeners.isEmpty()) {
@@ -167,21 +167,6 @@ public class HttpSessionImpl implements HttpSession {
         HttpSessionBindingEvent event = new HttpSessionBindingEvent(session, name, value);
         for (HttpSessionAttributeListener listener : listeners) {
             listener.attributeReplaced(event);
-        }
-    }
-
-
-    void invokeSessionIdChanged(HttpSession session, String oldSessionId) {
-        log.info("Invoke session id changed listener. Old session id: {}, new session id: {}", oldSessionId, session.getId());
-
-        List<HttpSessionIdListener> listeners = this.servletContext.getHttpSessionIdListeners();
-        if (listeners.isEmpty()) {
-            return;
-        }
-
-        HttpSessionEvent event = new HttpSessionEvent(session);
-        for (HttpSessionIdListener listener : listeners) {
-            listener.sessionIdChanged(event, oldSessionId);
         }
     }
 }

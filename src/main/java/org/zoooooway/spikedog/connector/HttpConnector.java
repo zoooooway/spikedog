@@ -11,6 +11,7 @@ import org.zoooooway.spikedog.servlet.ServletContextImpl;
 import org.zoooooway.spikedog.session.SessionManager;
 
 import java.io.IOException;
+import java.util.EventListener;
 import java.util.List;
 
 /**
@@ -20,11 +21,11 @@ public class HttpConnector implements HttpHandler {
 
     protected final ServletContextImpl servletContext;
 
-    public HttpConnector(List<Class<? extends Servlet>> servletClasses, List<Class<? extends Filter>> filterClasses) {
+    public HttpConnector(List<Class<? extends Servlet>> servletClasses, List<Class<? extends Filter>> filterClasses, List<Class<? extends EventListener>> listenerClasses) {
         this.servletContext = new ServletContextImpl();
         this.servletContext.setSessionManager(new SessionManager(this.servletContext));
 
-        this.servletContext.init(servletClasses, filterClasses);
+        this.servletContext.init(servletClasses, filterClasses, listenerClasses);
     }
 
     @Override
