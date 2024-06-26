@@ -26,4 +26,6 @@ public interface HttpExchangeRequest {
     String getRequestMethod();
 
     Headers getRequestHeaders();
+
+    String getProtocol();
 }

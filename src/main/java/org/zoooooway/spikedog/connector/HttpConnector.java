@@ -5,6 +5,8 @@ import com.sun.net.httpserver.HttpHandler;
 import jakarta.servlet.Filter;
 import jakarta.servlet.Servlet;
 import jakarta.servlet.ServletException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zoooooway.spikedog.servlet.ServletContextImpl;
 import org.zoooooway.spikedog.session.SessionManager;
 
@@ -16,6 +18,7 @@ import java.util.List;
  * @author zoooooway
  */
 public class HttpConnector implements HttpHandler {
+    private final static Logger log = LoggerFactory.getLogger(HttpConnector.class);
 
     protected final ServletContextImpl servletContext;
 
@@ -27,14 +30,14 @@ public class HttpConnector implements HttpHandler {
     }
 
     @Override
-    public void handle(HttpExchange exchange) throws IOException {
+    public void handle(HttpExchange exchange) {
         HttpExchangeAdapter exchangeAdapter = new HttpExchangeAdapter(exchange);
         HttpServletResponseImpl response = new HttpServletResponseImpl(exchangeAdapter);
         HttpServletRequestImpl request = new HttpServletRequestImpl(exchangeAdapter, response, this.servletContext);
         try {
             this.servletContext.process(request, response);
-        } catch (ServletException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            log.error("Servlet process exception", e);
         }
     }
 }

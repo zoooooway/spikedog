@@ -59,7 +59,7 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
             String[] cookieItems = ck.split(";");
             for (String cookieItem : cookieItems) {
                 String[] split = cookieItem.split("=");
-                Cookie cookie = new Cookie(split[0], split[1]);
+                Cookie cookie = new Cookie(split[0].trim(), split[1].trim());
                 cookieList.add(cookie);
             }
         }
@@ -79,6 +79,11 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     @Override
     public Headers getRequestHeaders() {
         return this.httpExchange.getRequestHeaders();
+    }
+
+    @Override
+    public String getProtocol() {
+        return httpExchange.getProtocol();
     }
 
     Map<String, String> parseQuery(String query) {

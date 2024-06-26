@@ -195,8 +195,8 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
         // 未匹配到servlet，返回404
         try (PrintWriter writer = response.getWriter()) {
-            writer.write("<h1>404 Not Found</h1><p>No mapping for URL: " + uri + "</p>");
             response.setStatus(404);
+            writer.write("<h1>404 Not Found</h1><p>No mapping for URL: " + uri + "</p>");
             response.flushBuffer();
         }
     }

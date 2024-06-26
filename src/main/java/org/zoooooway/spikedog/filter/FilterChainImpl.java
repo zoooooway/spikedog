@@ -21,8 +21,10 @@ public class FilterChainImpl implements FilterChain {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response) throws IOException, ServletException {
+        // 在链的末尾调用 Servlet 来处理请求
         if (filters.size() == index) {
             servlet.service(request, response);
+            return;
         }
         Filter filter = filters.get(index);
         index++;

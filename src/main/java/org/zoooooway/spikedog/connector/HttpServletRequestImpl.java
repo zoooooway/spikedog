@@ -326,7 +326,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public String getProtocol() {
-        return null;
+        return request.getProtocol();
     }
 
     @Override

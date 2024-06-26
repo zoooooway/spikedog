@@ -38,6 +38,8 @@ public class IndexServlet extends HttpServlet {
         resp.setContentType("text/html");
         PrintWriter pw = resp.getWriter();
         pw.write(html);
+        // 写入数据后刷新缓冲区
+        resp.flushBuffer();
         pw.close();
     }
 }

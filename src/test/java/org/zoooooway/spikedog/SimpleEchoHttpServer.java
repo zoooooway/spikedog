@@ -58,7 +58,7 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
     }
 
     @Override
-    public void handle(HttpExchange exchange) throws IOException {
+    public void handle(HttpExchange exchange) {
         super.handle(exchange);
     }
 

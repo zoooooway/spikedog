@@ -54,10 +54,12 @@ public class HttpServletResponseImpl implements HttpServletResponse {
     public void sendError(int sc, String msg) throws IOException {
         checkNotCommitted();
         this.status = sc;
-        commitHeaders(-1);
-        PrintWriter pw = getWriter();
-        pw.write(String.format("<h1>%d %s</h1>", sc, msg));
-        pw.close();
+        if (this.writer == null) {
+            getWriter();
+        }
+        this.writer.write(String.format("<h1>%d %s</h1>", sc, msg));
+        flushBuffer();
+        this.writer.close();
     }
 
     @Override
@@ -170,7 +172,6 @@ public class HttpServletResponseImpl implements HttpServletResponse {
         }
 
         OutputStream os = this.response.getResponseBody();
-        commitHeaders(0);
         this.writer = new PrintWriter(os, true, StandardCharsets.UTF_8);
         this.callWriter = true;
         return this.writer;
