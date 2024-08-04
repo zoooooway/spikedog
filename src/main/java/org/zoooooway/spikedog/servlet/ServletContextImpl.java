@@ -1,5 +1,7 @@
 package org.zoooooway.spikedog.servlet;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.annotation.WebInitParam;
@@ -56,15 +58,30 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     SessionManager sessionManager;
 
 
-    public void init(List<Class<? extends Servlet>> servletClasses, List<Class<? extends Filter>> filterClasses, List<Class<? extends EventListener>> listenerClasses) {
-        this.initServlets(servletClasses);
-        this.initFilters(filterClasses);
-        this.initListener(listenerClasses);
+    public void init(List<Class<?>> scannedClass) {
+        this.initServlets(scannedClass);
+        this.initFilters(scannedClass);
+        this.initListener(scannedClass);
 
         // notify listeners
         this.invokeServletContextInitialized(this);
 
         this.initialized = true;
+    }
+
+    @Nonnull
+    private List<Class<? extends Filter>> getFilterClass(List<Class<?>> scannedClass) {
+        return Collections.emptyList();
+    }
+
+    @Nonnull
+    private List<Class<? extends EventListener>> getListenerClass(List<Class<?>> scannedClass) {
+        return Collections.emptyList();
+    }
+
+    @Nonnull
+    private List<Class<? extends Servlet>> getServletClass(List<Class<?>> scannedClass) {
+        return Collections.emptyList();
     }
 
 
@@ -79,7 +96,8 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
         this.invokeServletContextDestroyed(this);
     }
 
-    public void initServlets(List<Class<? extends Servlet>> servletClasses) {
+    public void initServlets(List<Class<?>> scannedClass) {
+        List<Class<? extends Servlet>> servletClasses = getServletClass(scannedClass);
         for (var servletClass : servletClasses) {
             // 创建servlet
             Constructor<? extends Servlet> constructor;
@@ -118,7 +136,8 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     }
 
-    public void initFilters(List<Class<? extends Filter>> filterClasses) {
+    public void initFilters(List<Class<?>> scannedClass) {
+        List<Class<? extends Filter>> filterClasses = getFilterClass(scannedClass);
         for (var filterClass : filterClasses) {
             Constructor<? extends Filter> constructor;
             Filter filter;
@@ -157,7 +176,8 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
         }
     }
 
-    private void initListener(List<Class<? extends EventListener>> listenerClasses) {
+    private void initListener(List<Class<?>> scannedClass) {
+        List<Class<? extends EventListener>> listenerClasses = getListenerClass(scannedClass);
         for (var listenerClass : listenerClasses) {
             EventListener listener;
             try {

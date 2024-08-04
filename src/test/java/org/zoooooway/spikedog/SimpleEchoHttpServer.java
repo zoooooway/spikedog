@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zoooooway.spikedog.classloader.WebAppClassLoader;
 import org.zoooooway.spikedog.connector.HttpConnector;
 import org.zoooooway.spikedog.filter.HelloFilter;
 import org.zoooooway.spikedog.filter.LogFilter;
@@ -17,6 +18,7 @@ import org.zoooooway.spikedog.servlet.LogoutServlet;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -29,7 +31,13 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
 
 
     public static void main(String[] args) {
-        try (SimpleEchoHttpServer echoServer = new SimpleEchoHttpServer("localhost", 8080)) {
+        // todo 从命令行中解析启动war参数， 获取classpath和libPath
+        Path classPath = null;
+        Path[] libPath = null;
+        // todo 通过自定义classloader扫描所有class文件
+
+        // todo 启动server
+        try (SimpleEchoHttpServer echoServer = new SimpleEchoHttpServer("localhost", 8080, classPath, libPath)) {
             echoServer.httpServer.start();
             log.debug("start server!");
             for (; ; ) {
@@ -48,10 +56,9 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
 
     final HttpServer httpServer;
 
-    public SimpleEchoHttpServer(String host, int port) throws IOException {
-        super(List.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class),
-                List.of(HelloFilter.class, LogFilter.class),
-                List.of(HttpSessionListenerImpl.class, ServletRequestListenerImpl.class, ServletContextListenerImpl.class));
+    public SimpleEchoHttpServer(String host, int port, Path classpath, Path[] libPath) throws IOException {
+        super(new WebAppClassLoader(classpath, libPath), List.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class, HelloFilter.class, LogFilter.class
+                , HttpSessionListenerImpl.class, ServletRequestListenerImpl.class, ServletContextListenerImpl.class));
         this.servletContext.getSessionManager().setInterval(10);
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
         this.httpServer.createContext("/", this);
