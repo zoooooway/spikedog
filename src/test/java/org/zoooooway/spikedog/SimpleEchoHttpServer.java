@@ -33,7 +33,7 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
     public static void main(String[] args) {
         // todo 从命令行中解析启动war参数， 获取classpath和libPath
         Path classPath = null;
-        Path[] libPath = null;
+        Path libPath = null;
         // todo 通过自定义classloader扫描所有class文件
 
         // todo 启动server
@@ -56,7 +56,7 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
 
     final HttpServer httpServer;
 
-    public SimpleEchoHttpServer(String host, int port, Path classpath, Path[] libPath) throws IOException {
+    public SimpleEchoHttpServer(String host, int port, Path classpath, Path libPath) throws IOException {
         super(new WebAppClassLoader(classpath, libPath), List.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class, HelloFilter.class, LogFilter.class
                 , HttpSessionListenerImpl.class, ServletRequestListenerImpl.class, ServletContextListenerImpl.class));
         this.servletContext.getSessionManager().setInterval(10);

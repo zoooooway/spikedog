@@ -1,13 +1,16 @@
 package org.zoooooway.spikedog;
 
 import org.apache.commons.cli.*;
+import org.zoooooway.spikedog.classloader.WebAppClassLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
@@ -19,7 +22,7 @@ import java.util.zip.ZipFile;
  */
 public class Main {
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException {
         String war = null;
 
         Options options = new Options();
@@ -66,6 +69,7 @@ public class Main {
         Path libPath = tempDir.resolve("WEB-INF/lib");
         Files.createDirectories(libPath);
 
+        // 解压
         try (JarFile jarFile = new JarFile(war)) {
             jarFile.stream().forEach(entry -> {
                 if (!entry.isDirectory()) {
@@ -77,6 +81,22 @@ public class Main {
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
+                }
+            });
+        }
+
+        WebAppClassLoader classLoader = new WebAppClassLoader(classpath, libPath);
+        // 扫描类路径和jar路径以获取servlet组件
+
+        try (Stream<Path> walkStream = Files.walk(classpath)) {
+            walkStream.forEach(path -> {
+                if (Files.isRegularFile(path)
+                        && path.endsWith(".class")
+                        && !path.endsWith("module-info")
+                        && !path.endsWith("package-info")) {
+
+                    System.out.println(path);
+
                 }
             });
         }

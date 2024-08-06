@@ -19,48 +19,45 @@ import java.util.stream.Stream;
  */
 public class WebAppClassLoader extends URLClassLoader {
     private final Logger log = LoggerFactory.getLogger(WebAppClassLoader.class);
-    
-    private final Path classpath;
-    private final Path[] libPath;
 
+    private final Path[] libJars;
 
-    public WebAppClassLoader(Path classpath, Path[] libPath) throws IOException {
+    public WebAppClassLoader(Path classpath, Path libPath) throws IOException {
         super("WebAppClassLoader", createURLs(classpath, libPath).toArray(URL[]::new), ClassLoader.getSystemClassLoader());
-        this.classpath = classpath;
-        this.libPath = libPath;
+        try (Stream<Path> libStream = Files.list(libPath)) {
+            this.libJars = libStream.filter(path -> path.endsWith(".jar")).toArray(Path[]::new);
+        }
         if (log.isDebugEnabled()) {
             log.debug("set classpath: {}", classpath);
-            log.debug("set libPath: {}", Arrays.toString(libPath));
+            log.debug("set libPath: {}", Arrays.toString(libJars));
         }
     }
 
     /**
-     * 为给定路径中的文件创建url
+     * 创建用于加载类的路径url，classloader将基于这些url进行class查找
      *
      * @param classpath 应用程序类路径
-     * @param libPath 应用程序依赖的jar文件路径
+     * @param libPath   应用程序依赖的jar文件路径
      * @return
      * @throws IOException
      */
-    static List<URL> createURLs(Path classpath, Path[] libPath) throws IOException {
+    static List<URL> createURLs(Path classpath, Path libPath) throws IOException {
         List<URL> urls = new ArrayList<>();
-        urls.add(classpath.toUri().toURL());
-        
+        urls.add(classpath.toUri().normalize().toURL());
+
         // jar
-        Arrays.stream(libPath).sorted().forEach(dir -> {
-            try (Stream<Path> pathStream = Files.walk(dir)) {
-                pathStream.sorted().forEach(path -> {
-                    try {
-                        urls.add(path.toUri().toURL());
-                    } catch (MalformedURLException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        
+        try (Stream<Path> libStream = Files.list(libPath)) {
+            libStream.sorted()
+                    .filter(path -> path.endsWith(".jar"))
+                    .forEach(path -> {
+                        try {
+                            urls.add(path.toUri().normalize().toURL());
+
+                        } catch (MalformedURLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+        }
         return urls;
     }
 
