@@ -5,6 +5,8 @@ import com.sun.net.httpserver.HttpHandler;
 import jakarta.servlet.Filter;
 import jakarta.servlet.Servlet;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpFilter;
+import jakarta.servlet.http.HttpServlet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zoooooway.spikedog.classloader.WebAppClassLoader;
@@ -29,13 +31,21 @@ public class HttpConnector implements HttpHandler {
     protected final ServletContextImpl servletContext;
     protected final WebAppClassLoader classLoader;
 
-
-    public HttpConnector(WebAppClassLoader classLoader, List<Class<?>> scannedClass) {
+    public HttpConnector(WebAppClassLoader classLoader, Set<Class<? extends Servlet>> servletSet, Set<Class<? extends Filter>> filterSet, Set<Class<? extends EventListener>> listenerSet) {
         this.servletContext = new ServletContextImpl();
         this.classLoader = classLoader;
         this.servletContext.setSessionManager(new SessionManager(this.servletContext));
-        this.servletContext.init(scannedClass);
+        this.servletContext.init(servletSet, filterSet, listenerSet);
     }
+
+
+//    public HttpConnector(WebAppClassLoader classLoader, List<Class<?>> scannedClass) {
+//        this.servletContext = new ServletContextImpl();
+//        this.classLoader = classLoader;
+//        this.servletContext.setSessionManager(new SessionManager(this.servletContext));
+//        this.servletContext.init(scannedClass);
+//    }
+
 
     @Override
     public void handle(HttpExchange exchange) {

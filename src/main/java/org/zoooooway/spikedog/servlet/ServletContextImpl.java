@@ -58,10 +58,10 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     SessionManager sessionManager;
 
 
-    public void init(List<Class<?>> scannedClass) {
-        this.initServlets(scannedClass);
-        this.initFilters(scannedClass);
-        this.initListener(scannedClass);
+    public void init(Set<Class<? extends Servlet>> servletSet, Set<Class<? extends Filter>> filterSet, Set<Class<? extends EventListener>> listenerSet) {
+        this.initServlets(servletSet);
+        this.initFilters(filterSet);
+        this.initListener(listenerSet);
 
         // notify listeners
         this.invokeServletContextInitialized(this);
@@ -96,8 +96,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
         this.invokeServletContextDestroyed(this);
     }
 
-    public void initServlets(List<Class<?>> scannedClass) {
-        List<Class<? extends Servlet>> servletClasses = getServletClass(scannedClass);
+    public void initServlets(Set<Class<? extends Servlet>> servletClasses) {
         for (var servletClass : servletClasses) {
             // 创建servlet
             Constructor<? extends Servlet> constructor;
@@ -136,8 +135,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     }
 
-    public void initFilters(List<Class<?>> scannedClass) {
-        List<Class<? extends Filter>> filterClasses = getFilterClass(scannedClass);
+    public void initFilters(Set<Class<? extends Filter>> filterClasses) {
         for (var filterClass : filterClasses) {
             Constructor<? extends Filter> constructor;
             Filter filter;
@@ -176,8 +174,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
         }
     }
 
-    private void initListener(List<Class<?>> scannedClass) {
-        List<Class<? extends EventListener>> listenerClasses = getListenerClass(scannedClass);
+    private void initListener(Set<Class<? extends EventListener>> listenerClasses) {
         for (var listenerClass : listenerClasses) {
             EventListener listener;
             try {

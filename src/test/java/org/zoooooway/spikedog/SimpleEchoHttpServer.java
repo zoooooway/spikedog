@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 简单的echo http server实现
@@ -57,8 +58,8 @@ public class SimpleEchoHttpServer extends HttpConnector implements AutoCloseable
     final HttpServer httpServer;
 
     public SimpleEchoHttpServer(String host, int port, Path classpath, Path libPath) throws IOException {
-        super(new WebAppClassLoader(classpath, libPath), List.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class, HelloFilter.class, LogFilter.class
-                , HttpSessionListenerImpl.class, ServletRequestListenerImpl.class, ServletContextListenerImpl.class));
+        super(new WebAppClassLoader(classpath, libPath), Set.of(IndexServlet.class, HelloServlet.class, LoginServlet.class, LogoutServlet.class), Set.of(HelloFilter.class, LogFilter.class)
+                , Set.of(HttpSessionListenerImpl.class, ServletRequestListenerImpl.class, ServletContextListenerImpl.class));
         this.servletContext.getSessionManager().setInterval(10);
         this.httpServer = HttpServer.create(new InetSocketAddress(host, port), 0);
         this.httpServer.createContext("/", this);
