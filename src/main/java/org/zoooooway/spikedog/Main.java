@@ -102,75 +102,78 @@ public class Main {
             });
         }
 
-        WebAppClassLoader classLoader = new WebAppClassLoader(classpath, libPath);
-        // 扫描类路径和jar路径以获取servlet组件
+        try (WebAppClassLoader classLoader = new WebAppClassLoader(classpath, libPath)) {
 
-        Set<Class<? extends Servlet>> servletSet = new HashSet<>();
-        Set<Class<? extends Filter>> filterSet = new HashSet<>();
-        Set<Class<? extends EventListener>> listenerSet = new HashSet<>();
-        // classpath
-        try (Stream<Path> walkStream = Files.walk(classpath)) {
-            walkStream.forEach(path -> {
-                if (Files.isRegularFile(path) && isNeedLoadClass(path)) {
-                    String fullClassname = getFullClassname(path, classpath);
+            // 扫描类路径和jar路径以获取servlet组件
 
-                    collectServletComponent(classLoader, fullClassname, servletSet, filterSet, listenerSet);
-                }
-            });
-        }
+            Set<Class<? extends Servlet>> servletSet = new HashSet<>();
+            Set<Class<? extends Filter>> filterSet = new HashSet<>();
+            Set<Class<? extends EventListener>> listenerSet = new HashSet<>();
 
-        // jars
-        try (Stream<Path> walkStream = Files.list(libPath)) {
-            walkStream.forEach(path -> {
-                if (Files.isRegularFile(path)) {
-                    String fileName = path.getFileName().toString();
-                    if (fileName.endsWith(".jar")) {
-                        try (JarFile jarFile = new JarFile(path.toFile())) {
-                            jarFile.stream().forEach(entry -> {
-                                if (!entry.isDirectory()) {
-                                    // ch/qos/logback/classic/AsyncAppender.class
-                                    String name = entry.getName();
-                                    if (name.endsWith(".class")) {
-                                        String fullClassname = name.replace("/", ".");
-                                        fullClassname = fullClassname.substring(0, fullClassname.length() - 6);
-                                        String classname = fullClassname.substring(fullClassname.lastIndexOf(".") + 1);
-                                        if (!"module-info".equals(classname) && !"package-info".equals(classname)) {
-                                            collectServletComponent(classLoader, fullClassname, servletSet, filterSet, listenerSet);
+            // classpath
+            try (Stream<Path> walkStream = Files.walk(classpath)) {
+                walkStream.forEach(path -> {
+                    if (Files.isRegularFile(path) && isNeedLoadClass(path)) {
+                        String fullClassname = getFullClassname(path, classpath);
+
+                        collectServletComponent(classLoader, fullClassname, servletSet, filterSet, listenerSet);
+                    }
+                });
+            }
+
+            // jars
+            try (Stream<Path> walkStream = Files.list(libPath)) {
+                walkStream.forEach(path -> {
+                    if (Files.isRegularFile(path)) {
+                        String fileName = path.getFileName().toString();
+                        if (fileName.endsWith(".jar")) {
+                            try (JarFile jarFile = new JarFile(path.toFile())) {
+                                jarFile.stream().forEach(entry -> {
+                                    if (!entry.isDirectory()) {
+                                        // ch/qos/logback/classic/AsyncAppender.class
+                                        String name = entry.getName();
+                                        if (name.endsWith(".class")) {
+                                            String fullClassname = name.replace("/", ".");
+                                            fullClassname = fullClassname.substring(0, fullClassname.length() - 6);
+                                            String classname = fullClassname.substring(fullClassname.lastIndexOf(".") + 1);
+                                            if (!"module-info".equals(classname) && !"package-info".equals(classname)) {
+                                                collectServletComponent(classLoader, fullClassname, servletSet, filterSet, listenerSet);
+                                            }
                                         }
                                     }
-                                }
-                            });
+                                });
 
-                        } catch (IOException e) {
-                            throw new UncheckedIOException(e);
+                            } catch (IOException e) {
+                                throw new UncheckedIOException(e);
+                            }
                         }
                     }
-                }
-            });
-        }
-
-
-        LOG.info("Servlets: {}", servletSet);
-        LOG.info("Filters: {}", filterSet);
-        LOG.info("Listeners: {}", listenerSet);
-
-        // todo 启动server
-        HttpConnector connector = new HttpConnector(classLoader, servletSet, filterSet, listenerSet);
-        HttpServer httpServer = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
-        httpServer.createContext("/", connector);
-        httpServer.start();
-        LOG.debug("start server!");
-        for (; ; ) {
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                LOG.error("server interrupted!", e);
-                Thread.currentThread().interrupt();
-                break;
+                });
             }
-        }
-        httpServer.stop(60);
 
+
+            LOG.info("Servlets: {}", servletSet);
+            LOG.info("Filters: {}", filterSet);
+            LOG.info("Listeners: {}", listenerSet);
+
+            // todo 启动server
+            HttpConnector connector = new HttpConnector(classLoader, classpath.getParent().getParent(),
+                    servletSet, filterSet, listenerSet);
+            HttpServer httpServer = HttpServer.create(new InetSocketAddress("localhost", 8080), 0);
+            httpServer.createContext("/", connector);
+            httpServer.start();
+            LOG.debug("start server!");
+            for (; ; ) {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    LOG.error("server interrupted!", e);
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            httpServer.stop(60);
+        }
     }
 
     @SuppressWarnings("unchecked")

@@ -5,6 +5,7 @@ import jakarta.annotation.Nullable;
 import jakarta.servlet.http.Cookie;
 
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.net.URI;
 
 /**
@@ -28,4 +29,8 @@ public interface HttpExchangeRequest {
     Headers getRequestHeaders();
 
     String getProtocol();
+
+    InetSocketAddress getLocalAddress();
+
+    InetSocketAddress getRemoteAddress();
 }

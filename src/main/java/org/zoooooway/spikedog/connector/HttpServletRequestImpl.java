@@ -6,11 +6,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zoooooway.spikedog.servlet.ServletContextImpl;
 import org.zoooooway.spikedog.session.HttpSessionImpl;
+import org.zoooooway.spikedog.util.DateUtils;
 import org.zoooooway.spikedog.util.Parameters;
 
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 /**
@@ -44,6 +47,53 @@ public class HttpServletRequestImpl implements HttpServletRequest {
         this.parameters = new Parameters(request, StandardCharsets.UTF_8);
     }
 
+
+    @Override
+    public String getProtocol() {
+        return "HTTP/1.1";
+    }
+
+    @Override
+    public String getScheme() {
+        return "http";
+    }
+
+    @Override
+    public String getServerName() {
+        String header = getHeader("Host");
+        if (header == null) {
+            InetSocketAddress address = this.request.getLocalAddress();
+            header = address.getHostString();
+        }
+        return header;
+    }
+
+    @Override
+    public int getServerPort() {
+        InetSocketAddress address = this.request.getLocalAddress();
+        return address.getPort();
+    }
+
+    @Override
+    public Locale getLocale() {
+        return Locale.getDefault();
+    }
+
+    @Override
+    public Enumeration<Locale> getLocales() {
+        String langs = getHeader("Accept-Language");
+        if (langs == null) {
+            return Collections.enumeration(Collections.singleton(Locale.getDefault()));
+        }
+        return Collections.enumeration(Collections.singleton(Locale.getDefault()));
+    }
+
+    @Override
+    public boolean isSecure() {
+        return "https".equals(getScheme().toLowerCase());
+    }
+
+
     @Override
     public String getAuthType() {
         return null;
@@ -56,7 +106,15 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public long getDateHeader(String name) {
-        return 0;
+        String header = this.getHeader(name);
+        if (header == null) {
+            return -1;
+        }
+        try {
+            return DateUtils.parseDateTimeGMT(header);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Cannot parse date header: " + header);
+        }
     }
 
     @Override
@@ -66,12 +124,16 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public Enumeration<String> getHeaders(String name) {
-        return null;
+        List<String> hs = this.request.getRequestHeaders().get(name);
+        if (hs == null) {
+            return Collections.emptyEnumeration();
+        }
+        return Collections.enumeration(hs);
     }
 
     @Override
     public Enumeration<String> getHeaderNames() {
-        return null;
+        return Collections.enumeration(this.request.getRequestHeaders().keySet());
     }
 
     @Override
@@ -91,17 +153,17 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public String getPathTranslated() {
-        return null;
+        return this.servletContext.getRealPath(getRequestURI());
     }
 
     @Override
     public String getContextPath() {
-        return null;
+        return "";
     }
 
     @Override
     public String getQueryString() {
-        return null;
+        return this.request.getRequestURI().getRawQuery();
     }
 
     @Override
@@ -143,13 +205,16 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public StringBuffer getRequestURL() {
-        return null;
+        StringBuffer sb = new StringBuffer(128);
+        sb.append(getScheme()).append("://").append(getServerName()).append(':').append(getServerPort()).append(getRequestURI());
+        return sb;
     }
 
     @Override
     public String getServletPath() {
-        return null;
+        return getRequestURI();
     }
+
 
     @Override
     public HttpSession getSession(boolean create) {
@@ -175,7 +240,8 @@ public class HttpServletRequestImpl implements HttpServletRequest {
         // 写入响应
         if (response.isCommitted()) {
             // 请求已提交
-            throw new IllegalStateException("Cannot create session for response is committed.");
+            return session;
+//            throw new IllegalStateException("Cannot create session for response is committed.");
         }
 
         String cookieName = sessionId;
@@ -247,22 +313,21 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public Object getAttribute(String name) {
-        return null;
+        return this.attributes.get(name);
     }
 
     @Override
     public Enumeration<String> getAttributeNames() {
-        return null;
+        return Collections.enumeration(this.attributes.keySet());
     }
 
     @Override
     public String getCharacterEncoding() {
-        return null;
+        return StandardCharsets.UTF_8.name();
     }
 
     @Override
     public void setCharacterEncoding(String env) throws UnsupportedEncodingException {
-
     }
 
     @Override
@@ -285,7 +350,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public String getContentType() {
-        return null;
+        return getHeader("Content-Type");
     }
 
     @Override
@@ -325,26 +390,6 @@ public class HttpServletRequestImpl implements HttpServletRequest {
     }
 
     @Override
-    public String getProtocol() {
-        return request.getProtocol();
-    }
-
-    @Override
-    public String getScheme() {
-        return null;
-    }
-
-    @Override
-    public String getServerName() {
-        return null;
-    }
-
-    @Override
-    public int getServerPort() {
-        return 0;
-    }
-
-    @Override
     public BufferedReader getReader() throws IOException {
         if (callInput) {
             throw new IllegalStateException("Cannot open reader when input stream is opened.");
@@ -361,7 +406,8 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public String getRemoteAddr() {
-        return null;
+        InetSocketAddress address = this.request.getRemoteAddress();
+        return address.getHostString();
     }
 
     @Override
@@ -385,21 +431,6 @@ public class HttpServletRequestImpl implements HttpServletRequest {
     public void removeAttribute(String name) {
         Object remove = this.attributes.remove(name);
         this.invokeServletRequestAttributeRemoved(this.getServletContext(), this, name, remove);
-    }
-
-    @Override
-    public Locale getLocale() {
-        return null;
-    }
-
-    @Override
-    public Enumeration<Locale> getLocales() {
-        return null;
-    }
-
-    @Override
-    public boolean isSecure() {
-        return false;
     }
 
     @Override
@@ -429,7 +460,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public ServletContext getServletContext() {
-        return null;
+        return this.servletContext;
     }
 
     @Override
@@ -459,7 +490,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public DispatcherType getDispatcherType() {
-        return null;
+        return DispatcherType.REQUEST;
     }
 
     @Override
@@ -469,7 +500,7 @@ public class HttpServletRequestImpl implements HttpServletRequest {
 
     @Override
     public String getProtocolRequestId() {
-        return null;
+        return "";
     }
 
     @Override

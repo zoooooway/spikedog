@@ -48,7 +48,7 @@ public class WebAppClassLoader extends URLClassLoader {
         // jar
         try (Stream<Path> libStream = Files.list(libPath)) {
             libStream.sorted()
-                    .filter(path -> path.endsWith(".jar"))
+                    .filter(path -> path.getFileName().toString().endsWith(".jar"))
                     .forEach(path -> {
                         try {
                             urls.add(path.toUri().normalize().toURL());

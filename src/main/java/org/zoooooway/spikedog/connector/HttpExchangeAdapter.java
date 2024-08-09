@@ -7,6 +7,7 @@ import jakarta.servlet.http.Cookie;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -40,7 +41,7 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     public String getRequestHeader(String name) {
         Headers requestHeaders = this.httpExchange.getRequestHeaders();
         List<String> list = requestHeaders.get(name);
-        if (list.isEmpty()) {
+        if (list == null || list.isEmpty()) {
             return null;
         }
         return list.get(0);
@@ -83,7 +84,17 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
 
     @Override
     public String getProtocol() {
-        return httpExchange.getProtocol();
+        return this.httpExchange.getProtocol();
+    }
+
+    @Override
+    public InetSocketAddress getLocalAddress() {
+        return this.httpExchange.getLocalAddress();
+    }
+
+    @Override
+    public InetSocketAddress getRemoteAddress() {
+        return this.httpExchange.getRemoteAddress();
     }
 
     Map<String, String> parseQuery(String query) {
@@ -121,5 +132,10 @@ public class HttpExchangeAdapter implements HttpExchangeRequest, HttpExchangeRes
     @Override
     public OutputStream getResponseBody() {
         return this.httpExchange.getResponseBody();
+    }
+
+    @Override
+    public Headers getResponseHeaders() {
+        return this.httpExchange.getResponseHeaders();
     }
 }

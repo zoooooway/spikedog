@@ -1,7 +1,6 @@
 package org.zoooooway.spikedog.servlet;
 
 import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.annotation.WebInitParam;
@@ -16,12 +15,13 @@ import org.zoooooway.spikedog.filter.FilterMapping;
 import org.zoooooway.spikedog.filter.FilterRegistrationImpl;
 import org.zoooooway.spikedog.session.SessionManager;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
+import java.io.*;
 import java.lang.reflect.Constructor;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -56,6 +56,11 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
     // listener--
 
     SessionManager sessionManager;
+    final Path webRoot;
+
+    public ServletContextImpl(Path webRoot) {
+        this.webRoot = webRoot;
+    }
 
 
     public void init(Set<Class<? extends Servlet>> servletSet, Set<Class<? extends Filter>> filterSet, Set<Class<? extends EventListener>> listenerSet) {
@@ -196,10 +201,12 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     public void process(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         String uri = request.getRequestURI();
+        Servlet servlet;
         for (ServletMapping servletMapping : this.getServletMappingList()) {
             if (servletMapping.match(uri)) {
                 List<Filter> filterList = findFilters(uri);
-                FilterChain filterChain = new FilterChainImpl(filterList, servletMapping.getServlet());
+                servlet = servletMapping.getServlet();
+                FilterChain filterChain = new FilterChainImpl(filterList, servlet);
                 try {
                     this.invokeServletRequestInitialized(this, request);
                     filterChain.doFilter(request, response);
@@ -209,6 +216,7 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
                 }
             }
         }
+
 
         // 未匹配到servlet，返回404
         try (PrintWriter writer = response.getWriter()) {
@@ -346,16 +354,51 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     @Override
     public Set<String> getResourcePaths(String path) {
+        String originPath = path;
+        if (path.startsWith("/")) {
+            path = path.substring(1);
+        }
+        Path loc = this.webRoot.resolve(path).normalize();
+        if (loc.startsWith(this.webRoot)) {
+            if (Files.isDirectory(loc)) {
+                try {
+                    return Files.list(loc).map(p -> p.getFileName().toString()).collect(Collectors.toSet());
+                } catch (IOException e) {
+                    log.warn("list files failed for path: {}", originPath);
+                }
+            }
+        }
         return null;
     }
 
     @Override
     public URL getResource(String path) throws MalformedURLException {
-        return null;
+        String originPath = path;
+        if (path.startsWith("/")) {
+            path = path.substring(1);
+        }
+        Path loc = this.webRoot.resolve(path).normalize();
+        if (loc.startsWith(this.webRoot)) {
+            return loc.toUri().toURL();
+        }
+        throw new MalformedURLException("Path not found: " + originPath);
     }
 
     @Override
     public InputStream getResourceAsStream(String path) {
+        if (path.startsWith("/")) {
+            path = path.substring(1);
+        }
+        Path loc = this.webRoot.resolve(path).normalize();
+        if (loc.startsWith(this.webRoot)) {
+            if (Files.isReadable(loc)) {
+                try {
+                    return new BufferedInputStream(new FileInputStream(loc.toFile()));
+                } catch (FileNotFoundException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+        }
         return null;
     }
 
@@ -381,6 +424,13 @@ public class ServletContextImpl implements ServletContext, AutoCloseable {
 
     @Override
     public String getRealPath(String path) {
+        if (path.startsWith("/")) {
+            path = path.substring(1);
+        }
+        Path loc = this.webRoot.resolve(path).normalize();
+        if (loc.startsWith(this.webRoot)) {
+            return loc.toString();
+        }
         return null;
     }
 
